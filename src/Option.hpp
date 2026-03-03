@@ -28,25 +28,32 @@ namespace clap {
             }
             bool is_set() const noexcept override { return _value.has_value(); }
 
-            Option<T>& required() noexcept {
+            Option<T>& required() {
+                if (_default_value.has_value())
+                    throw clap::ConfigError("cannot combine required() with default_value()");
                 set_required();
                 return *this;
             }
 
             bool takes_value() const noexcept override { return true; }
 
-            Option<T>& default_value(T val) noexcept {
-                _value = std::move(val);
+            Option<T>& default_value(T val) {
+                if (is_required())
+                    throw clap::ConfigError("cannot combine default_value() with required()");
+                _default_value = std::move(val);
                 return *this;
             }
 
             const T& get() const {
                 if (_value.has_value())
                     return _value.value();
-                throw clap::ClapException("No value set");
+                if (_default_value.has_value())
+                    return _default_value.value();
+                throw clap::MissingValueException(std::string(names()));
             }
 
         private:
             std::optional<T> _value;
+            std::optional<T> _default_value;
     };
 }
