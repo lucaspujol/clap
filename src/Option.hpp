@@ -5,6 +5,7 @@
 
 #include "IArgument.hpp"
 #include "TypeNames.hpp"
+#include "ClapExceptions.hpp"
 
 namespace clap {
     template<typename T>
@@ -18,7 +19,7 @@ namespace clap {
                 std::istringstream iss{std::string(value)};
                 T val;
                 if (!(iss >> val))
-                    throw std::runtime_error("Failed to parse value");
+                    throw clap::ClapException("Failed to parse value");
                 _value = std::move(val);
             }
 
@@ -42,7 +43,7 @@ namespace clap {
             const T& get() const {
                 if (_value.has_value())
                     return _value.value();
-                throw std::runtime_error("No value set");
+                throw clap::ClapException("No value set");
             }
 
         private:

@@ -8,7 +8,6 @@ int main(int argc, char **argv) {
     auto &count = 
         app.option<int>("-c,--count", "Number of times to do something")
         .required();
-        // .default_value(1);
     app.parse(argc, argv);
     
     if (verbose)
