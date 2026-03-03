@@ -7,6 +7,8 @@ OBJ_DIR  = obj
 LIB_SRCS = src/App.cpp
 LIB_OBJS = $(LIB_SRCS:%.cpp=$(OBJ_DIR)/%.o)
 
+EXEC	 = example.out
+
 TARGET   = libclap.a
 
 all: $(TARGET)
@@ -22,11 +24,11 @@ clean:
 	rm -rf $(OBJ_DIR)
 
 fclean: clean
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(EXEC)
 
 re: fclean all
 
 compile: all
-	$(CXX) $(CXXFLAGS) -o example.out main.cpp -L. -lclap
+	$(CXX) $(CXXFLAGS) -o $(EXEC) main.cpp -L. -lclap
 
 .PHONY: all clean fclean re
