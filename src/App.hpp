@@ -35,15 +35,7 @@ namespace clap {
             std::string description;
             std::vector<std::unique_ptr<IArgument>> _arguments;
 
-            IArgument* find_argument(std::string_view name) {
-                for (auto& arg : _arguments)
-                    if (arg->matches(name)) return arg.get();
-                return nullptr;
-            }
-
-            bool starts_with(std::string_view str, std::string_view prefix) {
-                return str.size() >= prefix.size() &&
-                    str.compare(0, prefix.size(), prefix) == 0;
-            }
+            IArgument* find_argument(std::string_view name);
+            static bool starts_with(std::string_view str, std::string_view prefix);
     };
 }
