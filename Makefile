@@ -1,16 +1,18 @@
-CXX = g++
+CXX      = g++
 CXXFLAGS = -std=c++17 -Wall -Wextra -I./src
+AR       = ar
+ARFLAGS  = rcs
 
-SRCS = $(shell find . -name "*.cpp")
-OBJ_DIR = obj
-OBJS = $(SRCS:%.cpp=$(OBJ_DIR)/%.o)
+OBJ_DIR  = obj
+LIB_SRCS = src/App.cpp
+LIB_OBJS = $(LIB_SRCS:%.cpp=$(OBJ_DIR)/%.o)
 
-TARGET = my_program.out
+TARGET   = libclap.a
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+$(TARGET): $(LIB_OBJS)
+	$(AR) $(ARFLAGS) $@ $^
 
 $(OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
@@ -23,5 +25,8 @@ fclean: clean
 	rm -f $(TARGET)
 
 re: fclean all
+
+compile: all
+	$(CXX) $(CXXFLAGS) -o example.out main.cpp -L. -lclap
 
 .PHONY: all clean fclean re
