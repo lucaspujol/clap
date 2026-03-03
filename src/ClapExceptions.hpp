@@ -32,4 +32,10 @@ namespace clap {
             MissingRequiredArgumentException(const std::string& arg)
                 : ClapException("Missing required argument: " + arg) {}
     };
+
+    class ConfigError : public ClapException {
+        public:
+            ConfigError(const std::string& msg)
+                : ClapException("Configuration error: " + msg) {}
+    };
 }
