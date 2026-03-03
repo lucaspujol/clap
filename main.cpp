@@ -7,7 +7,8 @@ int main(int argc, char **argv) {
     auto &verbose = app.flag("-v,--verbose", "Enable verbose output");
     auto &count = 
         app.option<int>("-c,--count", "Number of times to do something")
-        .required();
+        .required()
+        .default_value(1);
     app.parse(argc, argv);
     
     if (verbose)
