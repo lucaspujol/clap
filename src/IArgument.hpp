@@ -8,9 +8,9 @@ namespace clap {
     class IArgument {
         public:
             IArgument(std::string names, std::string description)
-                : _names_raw(names), _description(std::move(description)) {
-                _names = split(names, ',');
-            }
+                : _names_raw(std::move(names)),
+                  _names(split(_names_raw, ',')),
+                  _description(std::move(description)) {}
             virtual ~IArgument() = default;
 
             virtual void parse(std::string_view value) = 0;
@@ -28,6 +28,8 @@ namespace clap {
 
                 return oss.str();
             }
+
+            std::string_view names() const noexcept { return _names_raw; }
 
             bool is_required() const noexcept { return _required; }
 
