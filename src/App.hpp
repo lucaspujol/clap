@@ -47,5 +47,6 @@ namespace clap {
 
             IArgument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
+            void print_help();
     };
 }
