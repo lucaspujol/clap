@@ -15,21 +15,21 @@ namespace clap {
             std::string _message;
     };
 
-    class UnknownArgumentException : public ClapException {
+    class UnknownArgument : public ClapException {
         public:
-            UnknownArgumentException(const std::string& arg)
+            UnknownArgument(const std::string& arg)
                 : ClapException("Unknown argument: " + arg) {}
     };
 
-    class MissingValueException : public ClapException {
+    class MissingValue : public ClapException {
         public:
-            MissingValueException(const std::string& arg)
+            MissingValue(const std::string& arg)
                 : ClapException("Missing value for argument: " + arg) {}
     };
 
-    class MissingRequiredArgumentException : public ClapException {
+    class MissingRequiredArgument : public ClapException {
         public:
-            MissingRequiredArgumentException(const std::string& arg)
+            MissingRequiredArgument(const std::string& arg)
                 : ClapException("Missing required argument: " + arg) {}
     };
 
@@ -37,5 +37,16 @@ namespace clap {
         public:
             ConfigError(const std::string& msg)
                 : ClapException("Configuration error: " + msg) {}
+    };
+
+    class HelpRequested : public ClapException {
+        public:
+            HelpRequested() : ClapException("Help requested") {}
+    };
+
+    class ParseError : public ClapException {
+        public:
+            ParseError(const std::string& msg)
+                : ClapException("Parse error: " + msg) {}
     };
 }
