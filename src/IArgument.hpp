@@ -16,20 +16,16 @@ namespace clap {
             virtual void parse(std::string_view value) = 0;
             virtual std::string_view type_name() const = 0;
 
-            std::string helpLine() const {
+            virtual std::string prefix() const {
                 std::ostringstream oss;
-
                 oss << "  " << _names_raw;
                 if (!type_name().empty())
                     oss << " <" << type_name() << ">";
-                oss << "\t" << _description;
-                if (_required)
-                    oss << " (required)";
-
                 return oss.str();
             }
 
             std::string_view names() const noexcept { return _names_raw; }
+            std::string_view description() const noexcept { return _description; }
 
             bool is_required() const noexcept { return _required; }
 
