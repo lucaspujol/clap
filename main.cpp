@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
     auto &verbose = app.flag("-v,--verbose", "Enable verbose output");
     auto &force = app.flag("-f,--force", "Force processing");
 
-    auto &count = app.option<int>("-c,--count", "Number of lines to process").required();
+    auto &count = app.option<std::string>("-c,--count", "Number of lines to process").required();
     auto &mode = app.option<Mode>("--mode", "Processing mode (fast|slow). fast by default").default_value(Mode::FAST);
 
     auto &input = app.positional<std::string>("input", "Input file");
