@@ -10,7 +10,7 @@ namespace clap {
         static T parse(std::string_view str) {
             std::istringstream iss{std::string(str)};
             T val;
-            if (!(iss >> val))
+            if (!(iss >> val) || !iss.eof())
                 throw clap::ParseError("Failed to parse value");
             return val;
         }
