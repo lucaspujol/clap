@@ -66,6 +66,36 @@ void clap::App::parse(int argc, char **argv) {
             continue;
         }
 
+        // --option=value
+        if (starts_with(token, "--")) {
+            auto eq = token.find('=');
+            if (eq != std::string_view::npos) {
+                auto arg_name  = token.substr(0, eq);
+                auto arg_value = token.substr(eq + 1);
+                auto *arg = find_argument(arg_name);
+                if (!arg)
+                    throw clap::UnknownArgument(std::string(arg_name));
+                if (!arg->takes_value())
+                    throw clap::ParseError("flag '" + std::string(arg_name) + "' does not take a value");
+                arg->parse(arg_value);
+                continue;
+            }
+        }
+
+        // combined short flags: -vf -> -v -f
+        if (!starts_with(token, "--") && token.size() > 2) {
+            for (size_t j = 1; j < token.size(); ++j) {
+                std::string short_name{'-', token[j]};
+                auto *arg = find_argument(short_name);
+                if (!arg)
+                    throw clap::UnknownArgument(short_name);
+                if (arg->takes_value())
+                    throw clap::ParseError("cannot combine '" + short_name + "': it takes a value");
+                arg->parse("");
+            }
+            continue;
+        }
+
         auto *arg = find_argument(token);
         if (!arg)
             throw clap::UnknownArgument(std::string(token));
