@@ -131,6 +131,60 @@ TEST_F(Fixture, ClusterThenValueTakingShort) {
     EXPECT_EQ(count.get(), 10);
 }
 
+// --- positional default_value ---------------------------------------------
+
+TEST(PositionalDefault, UsedWhenAbsent) {
+    clap::App app{"prog", "d"};
+    auto& out = app.positional<std::string>("output", "out").default_value("output.txt");
+    Argv a{"prog"};
+    app.parse(a.argc(), a.argv());
+    EXPECT_EQ(out.get(), "output.txt");
+}
+
+TEST(PositionalDefault, OverriddenWhenPresent) {
+    clap::App app{"prog", "d"};
+    auto& out = app.positional<std::string>("output", "out").default_value("output.txt");
+    Argv a{"prog", "custom.ppm"};
+    app.parse(a.argc(), a.argv());
+    EXPECT_EQ(out.get(), "custom.ppm");
+}
+
+TEST(PositionalDefault, RequiredAndDefaultConflict) {
+    clap::App app{"prog", "d"};
+    auto& p = app.positional<std::string>("x", "x");
+    p.required();
+    EXPECT_THROW(p.default_value("y"), clap::ConfigError);
+}
+
+TEST(PositionalDefault, DefaultMakesUsageOptional) {
+    clap::App app{"prog", "d"};
+    app.positional<std::string>("output", "out").default_value("output.txt");
+    EXPECT_EQ(app.usage(), "Usage: prog [-h] [<output>]");
+}
+
+// --- required positional --------------------------------------------------
+
+TEST(RequiredPositional, MissingThrows) {
+    clap::App app{"prog", "d"};
+    app.positional<std::string>("scene", "scene file").required();
+    Argv a{"prog"};
+    EXPECT_THROW(app.parse(a.argc(), a.argv()), clap::MissingRequiredArgument);
+}
+
+TEST(RequiredPositional, PresentParses) {
+    clap::App app{"prog", "d"};
+    auto& scene = app.positional<std::string>("scene", "scene file").required();
+    Argv a{"prog", "scene.txt"};
+    app.parse(a.argc(), a.argv());
+    EXPECT_EQ(scene.get(), "scene.txt");
+}
+
+TEST(RequiredPositional, UsageNotBracketed) {
+    clap::App app{"prog", "d"};
+    app.positional<std::string>("scene", "scene file").required();
+    EXPECT_EQ(app.usage(), "Usage: prog [-h] <scene>");
+}
+
 // --- step 5: -h/--help is a real auto-registered flag ---------------------
 
 TEST_F(Fixture, HelpThrowsHelpRequested) {
@@ -154,7 +208,20 @@ TEST_F(Fixture, HelpShortCircuitsRequiredCheck) {
 // --- step 6: usage string -------------------------------------------------
 
 TEST_F(Fixture, UsageString) {
-    EXPECT_EQ(app.usage(), "Usage: prog [options] <input>");
+    EXPECT_EQ(app.usage(),
+        "Usage: prog [-h] [-v] [-f] [-c <int>] [-n <string>]... [<input>]");
+}
+
+TEST(Usage, RequiredOptionsNotBracketed) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").required();
+    app.multi_option<std::string>("-n,--names", "names").required();
+    EXPECT_EQ(app.usage(), "Usage: prog [-h] -c <int> -n <string>...");
+}
+
+TEST(Registration, NameWithoutDashRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("count", "c"), clap::ConfigError);
 }
 
 // --- step 7: duplicate-name guard -----------------------------------------
