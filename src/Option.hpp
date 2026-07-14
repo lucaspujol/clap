@@ -33,6 +33,11 @@ namespace clap {
 
             bool takes_value() const noexcept override { return true; }
 
+            std::string usage_token() const override {
+                std::string core = std::string(primary_name()) + " <" + std::string(type_name()) + ">";
+                return is_required() ? core : "[" + core + "]";
+            }
+
             Option<T>& default_value(T val) {
                 if (is_required())
                     throw clap::ConfigError("cannot combine default_value() with required()");
@@ -46,6 +51,14 @@ namespace clap {
                 if (_default_value.has_value())
                     return _default_value.value();
                 throw clap::MissingValue(std::string(names()));
+            }
+
+            T get_or(T fallback) const {
+                if (_value.has_value())
+                    return _value.value();
+                if (_default_value.has_value())
+                    return _default_value.value();
+                return fallback;
             }
 
         private:

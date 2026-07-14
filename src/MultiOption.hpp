@@ -43,6 +43,11 @@ namespace clap {
             return oss.str();
         }
 
+        std::string usage_token() const override {
+            std::string core = std::string(primary_name()) + " <" + std::string(type_name()) + ">";
+            return is_required() ? core + "..." : "[" + core + "]...";
+        }
+
     private:
         std::vector<T> _values;
     };

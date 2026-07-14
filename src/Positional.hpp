@@ -26,10 +26,19 @@ namespace clap {
             bool is_set() const noexcept override { return _value.has_value(); }
             bool takes_value() const noexcept override { return true; }
 
+            std::string usage_token() const override {
+                std::string core = "<" + std::string(names()) + ">";
+                return is_required() ? core : "[" + core + "]";
+            }
+
             const T &get() const {
                 if (_value.has_value())
                     return _value.value();
                 throw clap::MissingValue(std::string(names()));
+            }
+
+            T get_or(T fallback) const {
+                return _value.value_or(std::move(fallback));
             }
 
         private:

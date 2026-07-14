@@ -18,6 +18,10 @@ namespace clap {
             bool is_set() const noexcept override { return _value; }
             bool takes_value() const noexcept override { return false; }
 
+            std::string usage_token() const override {
+                return "[" + std::string(primary_name()) + "]";
+            }
+
         private:
             bool _value = false;
     };
