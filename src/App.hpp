@@ -18,14 +18,14 @@ namespace clap {
             Option<T>& option(std::string names, std::string description) {
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
                 auto &ref = *option;
-                _arguments.push_back(std::move(option));
+                add_argument(std::move(option));
                 return ref;
             }
 
             Flag& flag(std::string names, std::string description) {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
                 auto &ref = *flag;
-                _arguments.push_back(std::move(flag));
+                add_argument(std::move(flag));
                 return ref;
             }
 
@@ -33,7 +33,7 @@ namespace clap {
             MultiOption<T>& multi_option(std::string names, std::string description) {
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
                 auto& ref = *opt;
-                _arguments.push_back(std::move(opt));
+                add_argument(std::move(opt));
                 return ref;
             }
 
@@ -46,16 +46,19 @@ namespace clap {
             }
 
             void parse(int argc, char **argv);
+            std::string usage() const;
 
         private:
-            std::string name;
-            std::string description;
+            std::string _name;
+            std::string _description;
             std::vector<std::unique_ptr<IArgument>> _arguments;
             std::vector<std::unique_ptr<IArgument>> _positionals;
             size_t _positional_idx = 0;
+            Flag* _help = nullptr;
 
+            void add_argument(std::unique_ptr<IArgument> arg);
             IArgument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
-            void print_help();
+            void print_help() const;
     };
 }
