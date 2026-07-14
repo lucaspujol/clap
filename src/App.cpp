@@ -100,7 +100,12 @@ void clap::App::parse(int argc, char **argv) {
         if (!arg)
             throw clap::UnknownArgument(std::string(token));
 
-        if (arg->takes_value()) {
+        if (arg->takes_multiple_values()) {
+            if (i + 1 >= argc || starts_with(argv[i + 1], "-"))
+                throw clap::MissingValue(std::string(token));
+            while (i + 1 < argc && !starts_with(argv[i + 1], "-"))
+                arg->push_value(argv[++i]);
+        } else if (arg->takes_value()) {
             if (i + 1 >= argc)
                 throw clap::MissingValue(std::string(token));
             arg->parse(argv[++i]);

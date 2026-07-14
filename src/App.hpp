@@ -3,6 +3,7 @@
 #include "Option.hpp"
 #include "Flag.hpp"
 #include "Positional.hpp"
+#include "MultiOption.hpp"
 
 #include <string>
 #include <vector>
@@ -25,6 +26,14 @@ namespace clap {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
                 auto &ref = *flag;
                 _arguments.push_back(std::move(flag));
+                return ref;
+            }
+
+            template<typename T>
+            MultiOption<T>& multi_option(std::string names, std::string description) {
+                auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
+                auto& ref = *opt;
+                _arguments.push_back(std::move(opt));
                 return ref;
             }
 
