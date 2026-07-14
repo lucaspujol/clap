@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <string_view>
+#include <sstream>
 
 #include "ClapExceptions.hpp"
 
@@ -13,6 +15,13 @@ namespace clap {
             if (!(iss >> val) || !iss.eof())
                 throw clap::ParseError("Failed to parse value");
             return val;
+        }
+    };
+
+    template<>
+    struct ParseValue<std::string> {
+        static std::string parse(std::string_view str) {
+            return std::string(str);
         }
     };
 }
