@@ -5,39 +5,31 @@
 #include <vector>
 
 namespace clap {
-    class IArgument {
+    class Argument {
         public:
-            IArgument(std::string names, std::string description)
+            Argument(std::string names, std::string description)
                 : _names_raw(std::move(names)),
                   _names(split(_names_raw, ',')),
                   _description(std::move(description)) {}
-            virtual ~IArgument() = default;
+            virtual ~Argument() = default;
 
             virtual void parse(std::string_view value) = 0;
             virtual std::string_view type_name() const = 0;
 
-            virtual std::string prefix() const {
-                std::ostringstream oss;
-                oss << "  " << _names_raw;
-                if (!type_name().empty())
-                    oss << " <" << type_name() << ">";
-                return oss.str();
-            }
+            virtual bool is_set() const noexcept = 0;
+            virtual bool takes_value() const noexcept = 0;
+            virtual bool is_multi() const noexcept { return false; }
+
+            // Rendered default value for help, or empty if none.
+            virtual std::string default_str() const { return ""; }
 
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
-
             bool is_required() const noexcept { return _required; }
-
-            virtual bool is_set() const noexcept = 0;
-            virtual bool takes_value() const noexcept = 0;
-
-            virtual std::string usage_token() const = 0;
-
-            virtual std::string default_str() const { return ""; }
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
+            // Shortest registered name, preferred for the usage summary (e.g. "-v").
             std::string_view primary_name() const noexcept {
                 std::string_view best;
                 for (const auto& n : _names)
@@ -76,5 +68,5 @@ namespace clap {
                 }
                 return tokens;
             }
-    };    
+    };
 }
