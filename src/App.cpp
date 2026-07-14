@@ -1,16 +1,15 @@
 #include "App.hpp"
 #include "ArgCursor.hpp"
 #include "ClapExceptions.hpp"
+#include "HelpFormatter.hpp"
 #include <iostream>
-#include <iomanip>
-#include <sstream>
 
 clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
     _help = &flag("-h,--help", "Show this help message");
 }
 
-void clap::App::add_argument(std::unique_ptr<IArgument> arg) {
+void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
         throw clap::ConfigError("argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
@@ -23,7 +22,7 @@ void clap::App::add_argument(std::unique_ptr<IArgument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
-clap::IArgument* clap::App::find_argument(std::string_view token) {
+clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
     return nullptr;
@@ -35,43 +34,11 @@ bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
 }
 
 std::string clap::App::usage() const {
-    std::ostringstream oss;
-    oss << "Usage: " << _name;
-    for (const auto& arg : _arguments)
-        oss << " " << arg->usage_token();
-    for (const auto& pos : _positionals)
-        oss << " " << pos->usage_token();
-    return oss.str();
+    return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
 void clap::App::print_help() const {
-    std::cout << usage() << "\n\n" << _description << "\n";
-
-    size_t max_w = 0;
-    for (const auto& arg : _arguments)
-        max_w = std::max(max_w, arg->prefix().size());
-    for (const auto& pos : _positionals)
-        max_w = std::max(max_w, pos->prefix().size());
-    const size_t col = max_w + 2;
-
-    std::cout << "\nOptions:\n";
-    for (const auto& arg : _arguments)
-        print_row(*arg, col);
-
-    if (!_positionals.empty()) {
-        std::cout << "\nArguments:\n";
-        for (const auto& pos : _positionals)
-            print_row(*pos, col);
-    }
-}
-
-void clap::App::print_row(const IArgument& arg, size_t col) {
-    std::cout << std::left << std::setw(col) << arg.prefix() << arg.description();
-    if (arg.is_required())
-        std::cout << " (required)";
-    else if (!arg.default_str().empty())
-        std::cout << " (default: " << arg.default_str() << ")";
-    std::cout << "\n";
+    std::cout << HelpFormatter(_name, _description, _arguments, _positionals).help();
 }
 
 

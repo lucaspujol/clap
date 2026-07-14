@@ -58,13 +58,13 @@ namespace clap {
         private:
             std::string _name;
             std::string _description;
-            std::vector<std::unique_ptr<IArgument>> _arguments;
-            std::vector<std::unique_ptr<IArgument>> _positionals;
+            std::vector<std::unique_ptr<Argument>> _arguments;
+            std::vector<std::unique_ptr<Argument>> _positionals;
             size_t _positional_idx = 0;
             Flag* _help = nullptr;
 
-            void add_argument(std::unique_ptr<IArgument> arg);
-            IArgument* find_argument(std::string_view name);
+            void add_argument(std::unique_ptr<Argument> arg);
+            Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
             void handle_positional(std::string_view token);
@@ -74,6 +74,5 @@ namespace clap {
             void check_required() const;
 
             void print_help() const;
-            static void print_row(const IArgument& arg, size_t col);
     };
 }
