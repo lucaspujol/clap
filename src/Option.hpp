@@ -2,6 +2,7 @@
 
 #include <string>
 #include <optional>
+#include <sstream>
 
 #include "IArgument.hpp"
 #include "TypeNames.hpp"
@@ -38,6 +39,13 @@ namespace clap {
                 return is_required() ? core : "[" + core + "]";
             }
 
+            std::string default_str() const override {
+                if (!_default_value.has_value()) return "";
+                std::ostringstream oss;
+                oss << _default_value.value();
+                return oss.str();
+            }
+
             Option<T>& default_value(T val) {
                 if (is_required())
                     throw clap::ConfigError("cannot combine default_value() with required()");
@@ -51,14 +59,6 @@ namespace clap {
                 if (_default_value.has_value())
                     return _default_value.value();
                 throw clap::MissingValue(std::string(names()));
-            }
-
-            T get_or(T fallback) const {
-                if (_value.has_value())
-                    return _value.value();
-                if (_default_value.has_value())
-                    return _default_value.value();
-                return fallback;
             }
 
         private:
