@@ -17,16 +17,20 @@ int main(int argc, char **argv) {
     auto &count = app.option<int>(
         "-c,--count",
         "Number of lines to process"
-    ).required();
+    ).default_value(10);
     auto &names = app.multi_option<std::string>(
         "-n,--names",
         "List of names"
     ).required();
-    
+
     auto &input = app.positional<std::string>(
         "input",
         "Input file"
-    );
+    ).required();
+    auto &output = app.positional<std::string>(
+        "output",
+        "Output file"
+    ).default_value("output.txt");
     try {
         app.parse(argc, argv);
         
@@ -38,6 +42,7 @@ int main(int argc, char **argv) {
             std::cout << "  " << name << ",\n";
         std::cout << "]\n";
         std::cout << "Input:   [" << input.get() << "]\n";
+        std::cout << "Output:  [" << output.get() << "]\n";
     }
     catch (const clap::HelpRequested &e) { return 0; }
     catch (const clap::ClapException &e) {
