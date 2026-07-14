@@ -31,8 +31,8 @@ namespace clap {
 
             virtual bool is_set() const noexcept = 0;
             virtual bool takes_value() const noexcept = 0;
-            virtual bool takes_multiple_values() const noexcept { return false; }
-            virtual void push_value(std::string_view value) { parse(value); }
+
+            const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
