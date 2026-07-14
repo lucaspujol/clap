@@ -6,6 +6,7 @@
 #include "IArgument.hpp"
 #include "TypeNames.hpp"
 #include "ClapExceptions.hpp"
+#include "ParseValue.hpp"
 
 namespace clap {
     template<typename T>
@@ -15,11 +16,7 @@ namespace clap {
             : IArgument(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value) override {
-                std::istringstream iss{std::string(value)};
-                T val;
-                if (!(iss >> val))
-                    throw clap::ClapException("Failed to parse value");
-                _value = std::move(val);
+                _value = clap::ParseValue<T>::parse(value);
             }
 
             std::string_view type_name() const override {
