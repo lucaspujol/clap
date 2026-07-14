@@ -31,4 +31,11 @@ re: fclean all
 compile: all
 	$(CXX) $(CXXFLAGS) -o $(EXEC) main.cpp -L. -lclap
 
-.PHONY: all clean fclean re
+TEST_SRC  = test/clap_test.cpp
+TEST_EXEC = clap_tests
+
+test: $(TARGET)
+	$(CXX) $(CXXFLAGS) -o $(TEST_EXEC) $(TEST_SRC) -L. -lclap -lgtest -lgtest_main -lpthread
+	./$(TEST_EXEC)
+
+.PHONY: all clean fclean re compile test
