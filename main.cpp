@@ -1,24 +1,6 @@
-#include "App.hpp"
+#include "src/App.hpp"
 #include <iostream>
-
-enum class Mode {
-    FAST,
-    SLOW
-};
-
-template<>
-struct clap::TypeName<Mode> {
-    static constexpr std::string_view value = "mode";
-};
-
-template<>
-struct clap::ParseValue<Mode> {
-    static Mode parse(std::string_view str) {
-        if (str == "fast") return Mode::FAST;
-        if (str == "slow") return Mode::SLOW;
-        throw clap::ParseError("Invalid mode: " + std::string(str));
-    }
-};
+#include <string>
 
 int main(int argc, char **argv) {
     clap::App app(argv[0], "my super program");
@@ -27,7 +9,7 @@ int main(int argc, char **argv) {
     auto &force = app.flag("-f,--force", "Force processing");
 
     auto &count = app.option<std::string>("-c,--count", "Number of lines to process").required();
-    auto &mode = app.option<Mode>("--mode", "Processing mode (fast|slow). fast by default").default_value(Mode::FAST);
+    auto &names = app.multi_option<std::string>("-n,--names", "List of names").required();
 
     auto &input = app.positional<std::string>("input", "Input file");
     try {
@@ -40,7 +22,11 @@ int main(int argc, char **argv) {
 
         if (count.is_set()) std::cout << "Count: " << count.get() << "\n";
         if (input.is_set()) std::cout << "Input file: " << input.get() << "\n";
-        if (mode.is_set()) std::cout << "Mode: " << (mode.get() == Mode::FAST ? "fast" : "slow") << "\n";
+        if (names.is_set()) {
+            std::cout << "Names:\n";
+            for (const auto &name : names.get())
+                std::cout << "  " << name << "\n";
+        }
     }
     catch (const clap::HelpRequested &e) { return 0; }
     catch (const clap::ClapException &e) {
