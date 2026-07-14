@@ -16,12 +16,7 @@ namespace clap {
             : IArgument(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value) override {
-                try {
-                    _value = clap::ParseValue<T>::parse(value);
-                } catch (const clap::ParseError&) {
-                    throw clap::InvalidValue(std::string(value),
-                        std::string(names()), std::string(type_name()));
-                }
+                _value = clap::parse_checked<T>(value, names(), type_name());
             }
 
             std::string_view type_name() const override {
