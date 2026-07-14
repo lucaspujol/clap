@@ -65,5 +65,6 @@ namespace clap {
             IArgument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
             void print_help() const;
+            static void print_row(const IArgument& arg, size_t col);
     };
 }

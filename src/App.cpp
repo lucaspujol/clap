@@ -10,10 +10,15 @@ clap::App::App(std::string name, std::string description)
 }
 
 void clap::App::add_argument(std::unique_ptr<IArgument> arg) {
-    for (const auto& existing : _arguments)
-        for (const auto& n : arg->raw_names())
+    if (arg->raw_names().empty())
+        throw clap::ConfigError("argument registered with no valid name");
+    for (const auto& n : arg->raw_names()) {
+        if (n[0] != '-')
+            throw clap::ConfigError("option name must start with '-': " + n);
+        for (const auto& existing : _arguments)
             if (existing->matches(n))
                 throw clap::ConfigError("duplicate option name: " + n);
+    }
     _arguments.push_back(std::move(arg));
 }
 
@@ -30,9 +35,11 @@ bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
 
 std::string clap::App::usage() const {
     std::ostringstream oss;
-    oss << "Usage: " << _name << " [options]";
+    oss << "Usage: " << _name;
+    for (const auto& arg : _arguments)
+        oss << " " << arg->usage_token();
     for (const auto& pos : _positionals)
-        oss << " <" << pos->names() << ">";
+        oss << " " << pos->usage_token();
     return oss.str();
 }
 
@@ -47,19 +54,23 @@ void clap::App::print_help() const {
     const size_t col = max_w + 2;
 
     std::cout << "\nOptions:\n";
-    for (const auto& arg : _arguments) {
-        std::cout << std::left << std::setw(col) << arg->prefix()
-                    << arg->description();
-        if (arg->is_required()) std::cout << " (required)";
-        std::cout << "\n";
-    }
+    for (const auto& arg : _arguments)
+        print_row(*arg, col);
 
     if (!_positionals.empty()) {
         std::cout << "\nArguments:\n";
         for (const auto& pos : _positionals)
-            std::cout << std::left << std::setw(col) << pos->prefix()
-                        << pos->description() << "\n";
+            print_row(*pos, col);
     }
+}
+
+void clap::App::print_row(const IArgument& arg, size_t col) {
+    std::cout << std::left << std::setw(col) << arg.prefix() << arg.description();
+    if (arg.is_required())
+        std::cout << " (required)";
+    else if (!arg.default_str().empty())
+        std::cout << " (default: " << arg.default_str() << ")";
+    std::cout << "\n";
 }
 
 
