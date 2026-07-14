@@ -1,4 +1,5 @@
 #include "App.hpp"
+#include "ArgCursor.hpp"
 #include "ClapExceptions.hpp"
 #include <iostream>
 #include <iomanip>
@@ -75,66 +76,19 @@ void clap::App::print_row(const IArgument& arg, size_t col) {
 
 
 void clap::App::parse(int argc, char **argv) {
-    for (int i = 1; i < argc; ++i) {
-        std::string_view token = argv[i];
+    ArgCursor cursor(argc, argv);
 
-        if (!starts_with(token, "-")) {
-            if (_positional_idx >= _positionals.size())
-                throw clap::UnknownArgument(std::string(token));
-            _positionals[_positional_idx++]->parse(token);
-            continue;
-        }
+    while (cursor.has_next()) {
+        std::string_view token = cursor.next();
 
-        // --option=value
-        if (starts_with(token, "--")) {
-            auto eq = token.find('=');
-            if (eq != std::string_view::npos) {
-                auto arg_name  = token.substr(0, eq);
-                auto arg_value = token.substr(eq + 1);
-                auto *arg = find_argument(arg_name);
-                if (!arg)
-                    throw clap::UnknownArgument(std::string(arg_name));
-                if (!arg->takes_value())
-                    throw clap::ParseError("flag '" + std::string(arg_name) + "' does not take a value");
-                arg->parse(arg_value);
-                continue;
-            }
-        }
-
-        // short cluster: -vf, -c10, -c-5, -vc 10
-        if (!starts_with(token, "--") && token.size() > 2) {
-            for (size_t j = 1; j < token.size(); ++j) {
-                std::string short_name{'-', token[j]};
-                auto *arg = find_argument(short_name);
-                if (!arg)
-                    throw clap::UnknownArgument(short_name);
-                if (arg->takes_value()) {
-                    auto attached = token.substr(j + 1);
-                    if (!attached.empty()) {
-                        arg->parse(attached);
-                    } else if (i + 1 < argc && !starts_with(argv[i + 1], "-")) {
-                        arg->parse(argv[++i]);
-                    } else {
-                        throw clap::MissingValue(short_name);
-                    }
-                    break;
-                }
-                arg->parse("");
-            }
-            continue;
-        }
-
-        auto *arg = find_argument(token);
-        if (!arg)
-            throw clap::UnknownArgument(std::string(token));
-
-        if (arg->takes_value()) {
-            if (i + 1 >= argc || starts_with(argv[i + 1], "-"))
-                throw clap::MissingValue(std::string(token));
-            arg->parse(argv[++i]);
-        } else {
-            arg->parse("");
-        }
+        if (!starts_with(token, "-"))
+            handle_positional(token);
+        else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
+            parse_long_equals(token);
+        else if (!starts_with(token, "--") && token.size() > 2)
+            parse_short_cluster(token, cursor);
+        else
+            parse_single(token, cursor);
     }
 
     if (_help && *_help) {
@@ -142,12 +96,68 @@ void clap::App::parse(int argc, char **argv) {
         throw clap::HelpRequested();
     }
 
-    for (const auto& arg : _arguments) {
+    check_required();
+}
+
+void clap::App::handle_positional(std::string_view token) {
+    if (_positional_idx >= _positionals.size())
+        throw clap::UnknownArgument(std::string(token));
+    _positionals[_positional_idx++]->parse(token);
+}
+
+// --option=value
+void clap::App::parse_long_equals(std::string_view token) {
+    auto eq = token.find('=');
+    auto arg_name  = token.substr(0, eq);
+    auto arg_value = token.substr(eq + 1);
+    auto *arg = find_argument(arg_name);
+    if (!arg)
+        throw clap::UnknownArgument(std::string(arg_name));
+    if (!arg->takes_value())
+        throw clap::ParseError("flag '" + std::string(arg_name) + "' does not take a value");
+    arg->parse(arg_value);
+}
+
+// short cluster: -vf, -c10, -c-5, -vc 10
+void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor) {
+    for (size_t j = 1; j < token.size(); ++j) {
+        std::string short_name{'-', token[j]};
+        auto *arg = find_argument(short_name);
+        if (!arg)
+            throw clap::UnknownArgument(short_name);
+        if (arg->takes_value()) {
+            auto attached = token.substr(j + 1);
+            if (!attached.empty())
+                arg->parse(attached);
+            else if (cursor.next_is_value())
+                arg->parse(cursor.next());
+            else
+                throw clap::MissingValue(short_name);
+            return;
+        }
+        arg->parse("");
+    }
+}
+
+void clap::App::parse_single(std::string_view token, ArgCursor& cursor) {
+    auto *arg = find_argument(token);
+    if (!arg)
+        throw clap::UnknownArgument(std::string(token));
+
+    if (arg->takes_value()) {
+        if (!cursor.next_is_value())
+            throw clap::MissingValue(std::string(token));
+        arg->parse(cursor.next());
+    } else {
+        arg->parse("");
+    }
+}
+
+void clap::App::check_required() const {
+    for (const auto& arg : _arguments)
         if (arg->is_required() && !arg->is_set())
             throw clap::MissingRequiredArgument(std::string(arg->names()));
-    }
-    for (const auto& pos : _positionals) {
+    for (const auto& pos : _positionals)
         if (pos->is_required() && !pos->is_set())
             throw clap::MissingRequiredArgument(std::string(pos->names()));
-    }
 }

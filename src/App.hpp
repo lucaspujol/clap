@@ -10,6 +10,8 @@
 #include <memory>
 
 namespace clap {
+    class ArgCursor;
+
     class App {
         public:
             App(std::string name, std::string description);
@@ -64,6 +66,13 @@ namespace clap {
             void add_argument(std::unique_ptr<IArgument> arg);
             IArgument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
+
+            void handle_positional(std::string_view token);
+            void parse_long_equals(std::string_view token);
+            void parse_short_cluster(std::string_view token, ArgCursor& cursor);
+            void parse_single(std::string_view token, ArgCursor& cursor);
+            void check_required() const;
+
             void print_help() const;
             static void print_row(const IArgument& arg, size_t col);
     };
