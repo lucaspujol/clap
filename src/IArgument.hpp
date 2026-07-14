@@ -32,7 +32,17 @@ namespace clap {
             virtual bool is_set() const noexcept = 0;
             virtual bool takes_value() const noexcept = 0;
 
+            virtual std::string usage_token() const = 0;
+
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
+
+            std::string_view primary_name() const noexcept {
+                std::string_view best;
+                for (const auto& n : _names)
+                    if (best.empty() || n.size() < best.size())
+                        best = n;
+                return best;
+            }
 
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
