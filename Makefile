@@ -4,7 +4,7 @@ AR       = ar
 ARFLAGS  = rcs
 
 OBJ_DIR  = obj
-LIB_SRCS = src/App.cpp
+LIB_SRCS = src/App.cpp src/HelpFormatter.cpp
 LIB_OBJS = $(LIB_SRCS:%.cpp=$(OBJ_DIR)/%.o)
 
 EXEC	 = example.out
