@@ -24,4 +24,13 @@ namespace clap {
             return std::string(str);
         }
     };
+
+    template<typename T>
+    T parse_checked(std::string_view value, std::string_view name, std::string_view type) {
+        try {
+            return ParseValue<T>::parse(value);
+        } catch (const clap::ParseError&) {
+            throw clap::InvalidValue(std::string(value), std::string(name), std::string(type));
+        }
+    }
 }
