@@ -1,6 +1,7 @@
 #pragma once
 
-#include <stdexcept>
+#include <exception>
+#include <string>
 
 namespace clap {
     class ClapException : public std::exception {
@@ -48,5 +49,13 @@ namespace clap {
         public:
             ParseError(const std::string& msg)
                 : ClapException("Parse error: " + msg) {}
+    };
+
+    class InvalidValue : public ClapException {
+        public:
+            InvalidValue(const std::string& value, const std::string& arg,
+                         const std::string& type)
+                : ClapException("invalid value '" + value + "' for '" + arg + "'"
+                    + (type.empty() ? "" : " (expected " + type + ")")) {}
     };
 }
