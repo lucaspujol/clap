@@ -34,6 +34,8 @@ namespace clap {
 
             virtual std::string usage_token() const = 0;
 
+            virtual std::string default_str() const { return ""; }
+
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
             std::string_view primary_name() const noexcept {
