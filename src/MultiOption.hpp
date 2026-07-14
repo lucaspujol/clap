@@ -16,11 +16,12 @@ namespace clap {
         : IArgument(std::move(names), std::move(description)) {}
 
         void parse(std::string_view value) override {
-            _values.push_back(clap::ParseValue<T>::parse(value));
-        }
-
-        void push_value(std::string_view value) override {
-            parse(value);
+            try {
+                _values.push_back(clap::ParseValue<T>::parse(value));
+            } catch (const clap::ParseError&) {
+                throw clap::InvalidValue(std::string(value),
+                    std::string(names()), std::string(type_name()));
+            }
         }
 
         std::string_view type_name() const override {
@@ -29,7 +30,6 @@ namespace clap {
 
         bool is_set() const noexcept override { return !_values.empty(); }
         bool takes_value() const noexcept override { return true; }
-        bool takes_multiple_values() const noexcept override { return true; }
 
         MultiOption<T>& required() {
             set_required();
