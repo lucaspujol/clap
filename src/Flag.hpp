@@ -1,14 +1,14 @@
 #pragma once
 
-#include "IArgument.hpp"
+#include "Argument.hpp"
 
 #include <string>
 
 namespace clap {
-    class Flag : public IArgument {
+    class Flag : public Argument {
         public:
             Flag(std::string names, std::string description)
-            : IArgument(std::move(names), std::move(description)) {}
+            : Argument(std::move(names), std::move(description)) {}
 
             operator bool() const noexcept { return _value; }
 
@@ -17,10 +17,6 @@ namespace clap {
 
             bool is_set() const noexcept override { return _value; }
             bool takes_value() const noexcept override { return false; }
-
-            std::string usage_token() const override {
-                return "[" + std::string(primary_name()) + "]";
-            }
 
         private:
             bool _value = false;

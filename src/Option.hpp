@@ -4,17 +4,17 @@
 #include <optional>
 #include <sstream>
 
-#include "IArgument.hpp"
+#include "Argument.hpp"
 #include "TypeNames.hpp"
 #include "ClapExceptions.hpp"
 #include "ParseValue.hpp"
 
 namespace clap {
     template<typename T>
-    class Option : public IArgument {
+    class Option : public Argument {
         public:
             Option(std::string names, std::string description)
-            : IArgument(std::move(names), std::move(description)) {}
+            : Argument(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value) override {
                 _value = clap::parse_checked<T>(value, names(), type_name());
@@ -33,11 +33,6 @@ namespace clap {
             }
 
             bool takes_value() const noexcept override { return true; }
-
-            std::string usage_token() const override {
-                std::string core = std::string(primary_name()) + " <" + std::string(type_name()) + ">";
-                return is_required() ? core : "[" + core + "]";
-            }
 
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";

@@ -4,17 +4,17 @@
 #include <optional>
 #include <sstream>
 
-#include "IArgument.hpp"
+#include "Argument.hpp"
 #include "TypeNames.hpp"
 #include "ClapExceptions.hpp"
 #include "ParseValue.hpp"
 
 namespace clap {
     template<typename T>
-    class Positional : public IArgument {
+    class Positional : public Argument {
         public:
             Positional(std::string names, std::string description)
-            : IArgument(std::move(names), std::move(description)) {}
+            : Argument(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value) override {
                 _value = clap::parse_checked<T>(value, names(), type_name());
@@ -39,11 +39,6 @@ namespace clap {
                     throw clap::ConfigError("cannot combine default_value() with required()");
                 _default_value = std::move(val);
                 return *this;
-            }
-
-            std::string usage_token() const override {
-                std::string core = "<" + std::string(names()) + ">";
-                return is_required() ? core : "[" + core + "]";
             }
 
             std::string default_str() const override {
