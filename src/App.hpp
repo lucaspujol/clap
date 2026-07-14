@@ -14,6 +14,11 @@ namespace clap {
         public:
             App(std::string name, std::string description);
 
+            App(const App&) = delete;
+            App& operator=(const App&) = delete;
+            App(App&&) = delete;
+            App& operator=(App&&) = delete;
+
             template<typename T>
             Option<T>& option(std::string names, std::string description) {
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
