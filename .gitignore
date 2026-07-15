@@ -45,3 +45,7 @@ clap_tests
 
 # cmake
 build/
+
+# example binaries (built into examples/), keep the sources
+examples/*
+!examples/*.cpp
