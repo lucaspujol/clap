@@ -25,7 +25,7 @@ namespace clap {
 
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
-            bool is_required() const noexcept { return _required; }
+            virtual bool is_required() const noexcept { return _required; }
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 

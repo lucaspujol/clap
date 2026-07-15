@@ -27,16 +27,9 @@ namespace clap {
             bool is_set() const noexcept override { return _value.has_value(); }
             bool takes_value() const noexcept override { return true; }
 
-            Positional<T>& required() {
-                if (_default_value.has_value())
-                    throw clap::ConfigError("cannot combine required() with default_value()");
-                set_required();
-                return *this;
-            }
+            bool is_required() const noexcept override { return !_default_value.has_value(); }
 
             Positional<T>& default_value(T val) {
-                if (is_required())
-                    throw clap::ConfigError("cannot combine default_value() with required()");
                 _default_value = std::move(val);
                 return *this;
             }
