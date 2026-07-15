@@ -5,6 +5,8 @@
 #include <vector>
 
 namespace clap {
+    /// Base of every argument type. Holds names and description;
+    /// subclasses decide how to parse and store a value.
     class Argument {
         public:
             Argument(std::string names, std::string description)
@@ -13,14 +15,19 @@ namespace clap {
                   _description(std::move(description)) {}
             virtual ~Argument() = default;
 
+            /// Consume a raw token as this argument's value.
             virtual void parse(std::string_view value) = 0;
+            /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
+            /// True once a value has been parsed.
             virtual bool is_set() const noexcept = 0;
+            /// True if this argument consumes a value token.
             virtual bool takes_value() const noexcept = 0;
+            /// True if it can be repeated to collect a list.
             virtual bool is_multi() const noexcept { return false; }
 
-            // Rendered default value for help, or empty if none.
+            /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
             std::string_view names() const noexcept { return _names_raw; }
@@ -29,7 +36,7 @@ namespace clap {
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
-            // Shortest registered name, preferred for the usage summary (e.g. "-v").
+            /// Shortest registered name, preferred for the usage summary (e.g. "-v").
             std::string_view primary_name() const noexcept {
                 std::string_view best;
                 for (const auto& n : _names)
@@ -38,6 +45,7 @@ namespace clap {
                 return best;
             }
 
+            /// True if token matches one of this argument's names.
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
                     if (arg_name == name)

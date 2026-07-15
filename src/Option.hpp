@@ -10,6 +10,7 @@
 #include "ParseValue.hpp"
 
 namespace clap {
+    /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
     template<typename T>
     class Option : public Argument {
         public:
@@ -25,6 +26,7 @@ namespace clap {
             }
             bool is_set() const noexcept override { return _value.has_value(); }
 
+            /// Mark as required. Parsing fails if absent. Excludes default_value().
             Option<T>& required() {
                 if (_default_value.has_value())
                     throw clap::ConfigError("cannot combine required() with default_value()");
@@ -41,6 +43,7 @@ namespace clap {
                 return oss.str();
             }
 
+            /// Set a fallback used when the option is absent. Excludes required().
             Option<T>& default_value(T val) {
                 if (is_required())
                     throw clap::ConfigError("cannot combine default_value() with required()");
@@ -48,6 +51,7 @@ namespace clap {
                 return *this;
             }
 
+            /// The parsed value, else the default. Throws MissingValue if neither.
             const T& get() const {
                 if (_value.has_value())
                     return _value.value();

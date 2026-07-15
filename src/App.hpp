@@ -12,8 +12,10 @@
 namespace clap {
     class ArgCursor;
 
+    /// The parser. Register arguments, then call parse(argc, argv).
     class App {
         public:
+            /// name shows in the usage line; description shows in help.
             App(std::string name, std::string description);
 
             App(const App&) = delete;
@@ -21,6 +23,7 @@ namespace clap {
             App(App&&) = delete;
             App& operator=(App&&) = delete;
 
+            /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
             Option<T>& option(std::string names, std::string description) {
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
@@ -29,6 +32,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a boolean flag, e.g. flag("-v,--verbose", "...").
             Flag& flag(std::string names, std::string description) {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
                 auto &ref = *flag;
@@ -36,6 +40,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
             MultiOption<T>& multi_option(std::string names, std::string description) {
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
@@ -44,6 +49,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
             Positional<T>& positional(std::string name, std::string description) {
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
@@ -52,10 +58,14 @@ namespace clap {
                 return ref;
             }
 
+            /// Remove the built-in -h/--help, freeing those names for your own use.
             App& no_auto_help();
+            /// Rename the built-in help flag, e.g. help_flag("-?,--help").
             App& help_flag(std::string names);
 
+            /// Parse argv. Throws a ClapException on error, or HelpRequested on -h.
             void parse(int argc, char **argv);
+            /// One-line usage summary string.
             std::string usage() const;
 
         private:
