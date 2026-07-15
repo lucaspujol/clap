@@ -8,6 +8,7 @@
 #include <vector>
 
 namespace clap {
+    /// A named option repeated to collect a list, e.g. -t a -t b.
     template<typename T>
     class MultiOption : public Argument {
     public:
@@ -26,11 +27,13 @@ namespace clap {
         bool takes_value() const noexcept override { return true; }
         bool is_multi() const noexcept override { return true; }
 
+        /// Mark as required. Parsing fails if the flag never appears.
         MultiOption<T>& required() {
             set_required();
             return *this;
         }
 
+        /// All collected values. Throws MissingValue if none were given.
         const std::vector<T>& get() const {
             if (_values.empty())
                 throw clap::MissingValue(std::string(names()));

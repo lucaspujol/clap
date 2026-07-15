@@ -8,6 +8,7 @@
 namespace clap {
     class Argument;
 
+    /// Builds the usage line and full help text from an App's arguments.
     class HelpFormatter {
         public:
             using ArgList = std::vector<std::unique_ptr<Argument>>;
@@ -17,7 +18,9 @@ namespace clap {
                 : _name(name), _description(description),
                   _options(options), _positionals(positionals) {}
 
+            /// The "Usage: ..." one-liner.
             std::string usage() const;
+            /// Full help: usage, description, and aligned option tables.
             std::string help() const;
 
         private:

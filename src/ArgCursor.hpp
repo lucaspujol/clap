@@ -3,6 +3,7 @@
 #include <string_view>
 
 namespace clap {
+    /// Walks argv left to right, one token at a time (skips argv[0]).
     class ArgCursor {
         public:
             ArgCursor(int argc, char** argv) noexcept
@@ -10,12 +11,13 @@ namespace clap {
 
             bool has_next() const noexcept { return _pos < _argc; }
 
-            // next token without moving. precondition: has_next().
+            /// Next token without moving. Precondition: has_next().
             std::string_view peek() const noexcept { return _argv[_pos]; }
 
-            // next token, then advance. precondition: has_next().
+            /// Next token, then advance. Precondition: has_next().
             std::string_view next() noexcept { return _argv[_pos++]; }
 
+            /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
                 return has_next() && (peek().empty() || peek().front() != '-');
             }

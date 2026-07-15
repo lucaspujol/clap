@@ -7,6 +7,7 @@
 #include "ClapExceptions.hpp"
 
 namespace clap {
+    /// Converts a string into T with operator>>. Specialize for custom parsing.
     template<typename T>
     struct ParseValue {
         static T parse(std::string_view str) {
@@ -25,6 +26,7 @@ namespace clap {
         }
     };
 
+    /// Parses value into T, turning any failure into an InvalidValue error.
     template<typename T>
     T parse_checked(std::string_view value, std::string_view name, std::string_view type) {
         try {

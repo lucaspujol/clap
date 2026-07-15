@@ -39,6 +39,7 @@
 
 // ===== ClapExceptions.hpp =====
 namespace clap {
+    /// Base of every clap error. Catch this to handle them all.
     class ClapException : public std::exception {
         public:
             ClapException(const std::string& message) : _message(message) {}
@@ -51,41 +52,48 @@ namespace clap {
             std::string _message;
     };
 
+    /// An argument was passed that was never registered.
     class UnknownArgument : public ClapException {
         public:
             UnknownArgument(const std::string& arg)
                 : ClapException("Unknown argument: " + arg) {}
     };
 
+    /// A value-taking argument was given no value.
     class MissingValue : public ClapException {
         public:
             MissingValue(const std::string& arg)
                 : ClapException("Missing value for argument: " + arg) {}
     };
 
+    /// A required argument was missing.
     class MissingRequiredArgument : public ClapException {
         public:
             MissingRequiredArgument(const std::string& arg)
                 : ClapException("Missing required argument: " + arg) {}
     };
 
+    /// The parser was set up wrong. Thrown while registering, not while parsing.
     class ConfigError : public ClapException {
         public:
             ConfigError(const std::string& msg)
                 : ClapException("Configuration error: " + msg) {}
     };
 
+    /// Thrown when help is requested. Not a failure: catch it and exit 0.
     class HelpRequested : public ClapException {
         public:
             HelpRequested() : ClapException("Help requested") {}
     };
 
+    /// A raw value failed to parse. Usually surfaces to the user as InvalidValue.
     class ParseError : public ClapException {
         public:
             ParseError(const std::string& msg)
                 : ClapException("Parse error: " + msg) {}
     };
 
+    /// A value had the wrong format for its type.
     class InvalidValue : public ClapException {
         public:
             InvalidValue(const std::string& value, const std::string& arg,
@@ -97,6 +105,8 @@ namespace clap {
 
 // ===== TypeNames.hpp =====
 namespace clap {
+    /// Label shown for a value type in help output, e.g. "<int>".
+    /// Specialize for a custom type to give it a name.
     template<typename T>
     struct TypeName {
         static constexpr std::string_view value = "unknown";
@@ -111,6 +121,8 @@ namespace clap {
 
 // ===== Argument.hpp =====
 namespace clap {
+    /// Base of every argument type. Holds names and description;
+    /// subclasses decide how to parse and store a value.
     class Argument {
         public:
             Argument(std::string names, std::string description)
@@ -119,14 +131,19 @@ namespace clap {
                   _description(std::move(description)) {}
             virtual ~Argument() = default;
 
+            /// Consume a raw token as this argument's value.
             virtual void parse(std::string_view value) = 0;
+            /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
+            /// True once a value has been parsed.
             virtual bool is_set() const noexcept = 0;
+            /// True if this argument consumes a value token.
             virtual bool takes_value() const noexcept = 0;
+            /// True if it can be repeated to collect a list.
             virtual bool is_multi() const noexcept { return false; }
 
-            // Rendered default value for help, or empty if none.
+            /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
             std::string_view names() const noexcept { return _names_raw; }
@@ -135,7 +152,7 @@ namespace clap {
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
-            // Shortest registered name, preferred for the usage summary (e.g. "-v").
+            /// Shortest registered name, preferred for the usage summary (e.g. "-v").
             std::string_view primary_name() const noexcept {
                 std::string_view best;
                 for (const auto& n : _names)
@@ -144,6 +161,7 @@ namespace clap {
                 return best;
             }
 
+            /// True if token matches one of this argument's names.
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
                     if (arg_name == name)
@@ -179,6 +197,7 @@ namespace clap {
 
 // ===== ArgCursor.hpp =====
 namespace clap {
+    /// Walks argv left to right, one token at a time (skips argv[0]).
     class ArgCursor {
         public:
             ArgCursor(int argc, char** argv) noexcept
@@ -186,12 +205,13 @@ namespace clap {
 
             bool has_next() const noexcept { return _pos < _argc; }
 
-            // next token without moving. precondition: has_next().
+            /// Next token without moving. Precondition: has_next().
             std::string_view peek() const noexcept { return _argv[_pos]; }
 
-            // next token, then advance. precondition: has_next().
+            /// Next token, then advance. Precondition: has_next().
             std::string_view next() noexcept { return _argv[_pos++]; }
 
+            /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
                 return has_next() && (peek().empty() || peek().front() != '-');
             }
@@ -205,6 +225,7 @@ namespace clap {
 
 // ===== ParseValue.hpp =====
 namespace clap {
+    /// Converts a string into T with operator>>. Specialize for custom parsing.
     template<typename T>
     struct ParseValue {
         static T parse(std::string_view str) {
@@ -223,6 +244,7 @@ namespace clap {
         }
     };
 
+    /// Parses value into T, turning any failure into an InvalidValue error.
     template<typename T>
     T parse_checked(std::string_view value, std::string_view name, std::string_view type) {
         try {
@@ -235,6 +257,7 @@ namespace clap {
 
 // ===== Flag.hpp =====
 namespace clap {
+    /// A boolean switch like -v or --force. Convert to bool to read it.
     class Flag : public Argument {
         public:
             Flag(std::string names, std::string description)
@@ -255,6 +278,7 @@ namespace clap {
 
 // ===== Option.hpp =====
 namespace clap {
+    /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
     template<typename T>
     class Option : public Argument {
         public:
@@ -270,6 +294,7 @@ namespace clap {
             }
             bool is_set() const noexcept override { return _value.has_value(); }
 
+            /// Mark as required. Parsing fails if absent. Excludes default_value().
             Option<T>& required() {
                 if (_default_value.has_value())
                     throw clap::ConfigError("cannot combine required() with default_value()");
@@ -286,6 +311,7 @@ namespace clap {
                 return oss.str();
             }
 
+            /// Set a fallback used when the option is absent. Excludes required().
             Option<T>& default_value(T val) {
                 if (is_required())
                     throw clap::ConfigError("cannot combine default_value() with required()");
@@ -293,6 +319,7 @@ namespace clap {
                 return *this;
             }
 
+            /// The parsed value, else the default. Throws MissingValue if neither.
             const T& get() const {
                 if (_value.has_value())
                     return _value.value();
@@ -309,6 +336,7 @@ namespace clap {
 
 // ===== MultiOption.hpp =====
 namespace clap {
+    /// A named option repeated to collect a list, e.g. -t a -t b.
     template<typename T>
     class MultiOption : public Argument {
     public:
@@ -327,11 +355,13 @@ namespace clap {
         bool takes_value() const noexcept override { return true; }
         bool is_multi() const noexcept override { return true; }
 
+        /// Mark as required. Parsing fails if the flag never appears.
         MultiOption<T>& required() {
             set_required();
             return *this;
         }
 
+        /// All collected values. Throws MissingValue if none were given.
         const std::vector<T>& get() const {
             if (_values.empty())
                 throw clap::MissingValue(std::string(names()));
@@ -345,6 +375,8 @@ namespace clap {
 
 // ===== Positional.hpp =====
 namespace clap {
+    /// An order-based argument with no dash, e.g. an input file.
+    /// Required unless given a default_value().
     template<typename T>
     class Positional : public Argument {
         public:
@@ -364,6 +396,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
+            /// Set a fallback value, making the positional optional.
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;
@@ -376,6 +409,7 @@ namespace clap {
                 return oss.str();
             }
 
+            /// The parsed value, else the default. Throws MissingValue if neither.
             const T &get() const {
                 if (_value.has_value())
                     return _value.value();
@@ -394,6 +428,7 @@ namespace clap {
 namespace clap {
     class Argument;
 
+    /// Builds the usage line and full help text from an App's arguments.
     class HelpFormatter {
         public:
             using ArgList = std::vector<std::unique_ptr<Argument>>;
@@ -403,7 +438,9 @@ namespace clap {
                 : _name(name), _description(description),
                   _options(options), _positionals(positionals) {}
 
+            /// The "Usage: ..." one-liner.
             std::string usage() const;
+            /// Full help: usage, description, and aligned option tables.
             std::string help() const;
 
         private:
@@ -425,8 +462,10 @@ namespace clap {
 namespace clap {
     class ArgCursor;
 
+    /// The parser. Register arguments, then call parse(argc, argv).
     class App {
         public:
+            /// name shows in the usage line; description shows in help.
             App(std::string name, std::string description);
 
             App(const App&) = delete;
@@ -434,6 +473,7 @@ namespace clap {
             App(App&&) = delete;
             App& operator=(App&&) = delete;
 
+            /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
             Option<T>& option(std::string names, std::string description) {
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
@@ -442,6 +482,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a boolean flag, e.g. flag("-v,--verbose", "...").
             Flag& flag(std::string names, std::string description) {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
                 auto &ref = *flag;
@@ -449,6 +490,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
             MultiOption<T>& multi_option(std::string names, std::string description) {
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
@@ -457,6 +499,7 @@ namespace clap {
                 return ref;
             }
 
+            /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
             Positional<T>& positional(std::string name, std::string description) {
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
@@ -465,10 +508,14 @@ namespace clap {
                 return ref;
             }
 
+            /// Remove the built-in -h/--help, freeing those names for your own use.
             App& no_auto_help();
+            /// Rename the built-in help flag, e.g. help_flag("-?,--help").
             App& help_flag(std::string names);
 
+            /// Parse argv. Throws a ClapException on error, or HelpRequested on -h.
             void parse(int argc, char **argv);
+            /// One-line usage summary string.
             std::string usage() const;
 
         private:

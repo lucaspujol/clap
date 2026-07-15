@@ -10,6 +10,8 @@
 #include "ParseValue.hpp"
 
 namespace clap {
+    /// An order-based argument with no dash, e.g. an input file.
+    /// Required unless given a default_value().
     template<typename T>
     class Positional : public Argument {
         public:
@@ -29,6 +31,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
+            /// Set a fallback value, making the positional optional.
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;
@@ -41,6 +44,7 @@ namespace clap {
                 return oss.str();
             }
 
+            /// The parsed value, else the default. Throws MissingValue if neither.
             const T &get() const {
                 if (_value.has_value())
                     return _value.value();
