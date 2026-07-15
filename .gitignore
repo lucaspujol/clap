@@ -42,3 +42,6 @@
 
 .vscode/
 clap_tests
+
+# cmake
+build/
