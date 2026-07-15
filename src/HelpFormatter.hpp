@@ -22,9 +22,11 @@ namespace clap {
 
         private:
             std::string usage_token(const Argument& arg, bool positional) const;
-            std::string prefix(const Argument& arg) const;
+            std::string name_col(const Argument& arg) const;
+            std::string type_col(const Argument& arg) const;
             std::string annotation(const Argument& arg) const;
-            size_t column_width() const;
+            size_t name_width() const;
+            size_t type_width() const;
 
             std::string_view _name;
             std::string_view _description;
