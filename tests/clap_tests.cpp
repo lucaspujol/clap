@@ -232,6 +232,45 @@ TEST(Registration, HelpNameCollisionRejected) {
     EXPECT_THROW(app.flag("-h,--hello", "h"), clap::ConfigError);
 }
 
+// --- customizable help flag -----------------------------------------------
+
+TEST(HelpFlag, NoAutoHelpFreesDashH) {
+    clap::App app{"prog", "d"};
+    app.no_auto_help();
+    EXPECT_NO_THROW(app.flag("-h,--host", "host"));
+}
+
+TEST(HelpFlag, NoAutoHelpMeansDashHNoLongerTriggersHelp) {
+    clap::App app{"prog", "d"};
+    app.no_auto_help();
+    auto& host = app.flag("-h,--host", "host");
+    Argv a{"prog", "-h"};
+    app.parse(a.argc(), a.argv());
+    EXPECT_TRUE(host);
+}
+
+TEST(HelpFlag, RenamedHelpTriggersOnNewName) {
+    clap::App app{"prog", "d"};
+    app.help_flag("-?,--help");
+    Argv a{"prog", "-?"};
+    EXPECT_THROW(app.parse(a.argc(), a.argv()), clap::HelpRequested);
+}
+
+TEST(HelpFlag, RenamedHelpFreesDashH) {
+    clap::App app{"prog", "d"};
+    app.help_flag("-?,--help");
+    EXPECT_NO_THROW(app.flag("-h,--host", "host"));
+}
+
+TEST(HelpFlag, RenamedHelpOldDashHNoLongerHelp) {
+    clap::App app{"prog", "d"};
+    app.help_flag("-?,--help");
+    auto& host = app.flag("-h,--host", "host");
+    Argv a{"prog", "-h"};
+    app.parse(a.argc(), a.argv());
+    EXPECT_TRUE(host);
+}
+
 // --- required / unknown ---------------------------------------------------
 
 TEST(Required, MissingRequiredThrows) {

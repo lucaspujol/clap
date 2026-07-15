@@ -465,6 +465,9 @@ namespace clap {
                 return ref;
             }
 
+            App& no_auto_help();
+            App& help_flag(std::string names);
+
             void parse(int argc, char **argv);
             std::string usage() const;
 
@@ -477,6 +480,7 @@ namespace clap {
             Flag* _help = nullptr;
 
             void add_argument(std::unique_ptr<Argument> arg);
+            void remove_help();
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
@@ -601,6 +605,28 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
                 throw clap::ConfigError("duplicate option name: " + n);
     }
     _arguments.push_back(std::move(arg));
+}
+
+void clap::App::remove_help() {
+    if (!_help)
+        return;
+    for (auto it = _arguments.begin(); it != _arguments.end(); ++it)
+        if (it->get() == _help) {
+            _arguments.erase(it);
+            break;
+        }
+    _help = nullptr;
+}
+
+clap::App& clap::App::no_auto_help() {
+    remove_help();
+    return *this;
+}
+
+clap::App& clap::App::help_flag(std::string names) {
+    remove_help();
+    _help = &flag(std::move(names), "Show this help message");
+    return *this;
 }
 
 clap::Argument* clap::App::find_argument(std::string_view token) {
