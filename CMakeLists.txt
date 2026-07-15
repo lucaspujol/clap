@@ -21,7 +21,7 @@ option(CLAP_BUILD_TESTS "Build tests" ON)
 
 if(CLAP_BUILD_TESTS)
     find_package(GTest REQUIRED)
-    add_executable(clap_tests test/clap_tests.cpp)
+    add_executable(clap_tests tests/clap_tests.cpp)
     target_link_libraries(clap_tests PRIVATE clap GTest::gtest GTest::gtest_main)
 
     enable_testing()
