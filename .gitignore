@@ -46,8 +46,8 @@ clap_tests
 # cmake
 build/
 
-# generated docs
-docs/
+# generated docs (assets in docs/ stay tracked)
+docs/generated/
 
 # example binaries (built into examples/<name>/), keep the sources
 examples/**

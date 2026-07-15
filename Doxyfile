@@ -1,6 +1,7 @@
 PROJECT_NAME           = clap
 PROJECT_BRIEF          = "Lightweight header-only C++ command line argument parser"
-OUTPUT_DIRECTORY       = docs
+OUTPUT_DIRECTORY       = docs/generated
+HTML_OUTPUT            = html
 INPUT                  = README.md include
 FILE_PATTERNS          = *.hpp *.md
 USE_MDFILE_AS_MAINPAGE = README.md
@@ -8,7 +9,16 @@ RECURSIVE              = YES
 EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = NO
 GENERATE_LATEX         = NO
-GENERATE_TREEVIEW      = YES
 HAVE_DOT               = YES
 QUIET                  = YES
 WARN_IF_UNDOCUMENTED   = NO
+
+# doxygen-awesome-css theme
+HTML_EXTRA_STYLESHEET  = docs/doxygen-awesome-css/doxygen-awesome.css
+HTML_COLORSTYLE        = AUTO_LIGHT
+HTML_COLORSTYLE_HUE    = 220
+HTML_COLORSTYLE_SAT    = 100
+HTML_COLORSTYLE_GAMMA  = 80
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+FULL_SIDEBAR           = NO
