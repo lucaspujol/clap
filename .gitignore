@@ -46,6 +46,9 @@ clap_tests
 # cmake
 build/
 
+# generated docs
+docs/
+
 # example binaries (built into examples/<name>/), keep the sources
 examples/**
 !examples/**/
