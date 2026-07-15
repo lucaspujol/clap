@@ -8,9 +8,6 @@
 namespace clap {
     class Argument;
 
-    // Owns all rendering of the usage line and --help text. Reads argument data
-    // (names, type, required, default, multi); the argument types themselves
-    // carry no layout logic.
     class HelpFormatter {
         public:
             using ArgList = std::vector<std::unique_ptr<Argument>>;
