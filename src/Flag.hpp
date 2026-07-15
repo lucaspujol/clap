@@ -5,6 +5,7 @@
 #include <string>
 
 namespace clap {
+    /// A boolean switch like -v or --force. Convert to bool to read it.
     class Flag : public Argument {
         public:
             Flag(std::string names, std::string description)
