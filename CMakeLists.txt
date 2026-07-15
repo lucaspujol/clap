@@ -4,23 +4,24 @@ project(clap LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Library --------------------------------------------------------------
-# Header-only: INTERFACE target carries the include dir, nothing is compiled
-# here. Consumers link `clap` and get include/clap.hpp on their include path.
+# --- Library: header-only, INTERFACE target just carries the include dir ---
 add_library(clap INTERFACE)
 target_include_directories(clap INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# --- Examples -------------------------------------------------------------
-# One binary per examples/*.cpp, emitted back into examples/ for easy running.
-# CONFIGURE_DEPENDS => cmake re-globs on build, so new files are picked up.
-file(GLOB EXAMPLE_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/examples/*.cpp)
-foreach(example_src ${EXAMPLE_SOURCES})
-    get_filename_component(example_name ${example_src} NAME_WE)
-    add_executable(${example_name} ${example_src})
-    target_link_libraries(${example_name} PRIVATE clap)
-    target_compile_options(${example_name} PRIVATE -Wall -Wextra)
-    set_target_properties(${example_name} PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/examples)
+# --- Examples: one binary per examples/<name>/ subdir, built from all its .cpp ---
+file(GLOB EXAMPLE_DIRS LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/examples/*)
+foreach(example_dir ${EXAMPLE_DIRS})
+    if(IS_DIRECTORY ${example_dir})
+        file(GLOB example_srcs CONFIGURE_DEPENDS ${example_dir}/*.cpp)
+        if(example_srcs)
+            get_filename_component(example_name ${example_dir} NAME)
+            add_executable(${example_name} ${example_srcs})
+            target_link_libraries(${example_name} PRIVATE clap)
+            target_compile_options(${example_name} PRIVATE -Wall -Wextra)
+            set_target_properties(${example_name} PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY ${example_dir})
+        endif()
+    endif()
 endforeach()
 
 # --- Tests ----------------------------------------------------------------
