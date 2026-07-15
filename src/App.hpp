@@ -52,6 +52,9 @@ namespace clap {
                 return ref;
             }
 
+            App& no_auto_help();
+            App& help_flag(std::string names);
+
             void parse(int argc, char **argv);
             std::string usage() const;
 
@@ -64,6 +67,7 @@ namespace clap {
             Flag* _help = nullptr;
 
             void add_argument(std::unique_ptr<Argument> arg);
+            void remove_help();
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
