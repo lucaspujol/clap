@@ -1,7 +1,8 @@
 #include <gtest/gtest.h>
 
-#include "../src/App.hpp"
-#include "../src/ClapExceptions.hpp"
+// Test the shipped single header, defining the implementation in this TU.
+#define CLAP_IMPLEMENTATION
+#include "clap.hpp"
 
 #include <string>
 #include <vector>
