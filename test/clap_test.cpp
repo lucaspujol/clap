@@ -25,7 +25,7 @@ struct Fixture : ::testing::Test {
     clap::Flag& force = app.flag("-f,--force", "force");
     clap::Option<int>& count = app.option<int>("-c,--count", "count");
     clap::MultiOption<std::string>& names = app.multi_option<std::string>("-n,--names", "names");
-    clap::Positional<std::string>& input = app.positional<std::string>("input", "input");
+    clap::Positional<std::string>& input = app.positional<std::string>("input", "input").default_value("");
 };
 
 // --- parsing basics -------------------------------------------------------
@@ -149,13 +149,6 @@ TEST(PositionalDefault, OverriddenWhenPresent) {
     EXPECT_EQ(out.get(), "custom.ppm");
 }
 
-TEST(PositionalDefault, RequiredAndDefaultConflict) {
-    clap::App app{"prog", "d"};
-    auto& p = app.positional<std::string>("x", "x");
-    p.required();
-    EXPECT_THROW(p.default_value("y"), clap::ConfigError);
-}
-
 TEST(PositionalDefault, DefaultMakesUsageOptional) {
     clap::App app{"prog", "d"};
     app.positional<std::string>("output", "out").default_value("output.txt");
@@ -166,14 +159,14 @@ TEST(PositionalDefault, DefaultMakesUsageOptional) {
 
 TEST(RequiredPositional, MissingThrows) {
     clap::App app{"prog", "d"};
-    app.positional<std::string>("scene", "scene file").required();
+    app.positional<std::string>("scene", "scene file");
     Argv a{"prog"};
     EXPECT_THROW(app.parse(a.argc(), a.argv()), clap::MissingRequiredArgument);
 }
 
 TEST(RequiredPositional, PresentParses) {
     clap::App app{"prog", "d"};
-    auto& scene = app.positional<std::string>("scene", "scene file").required();
+    auto& scene = app.positional<std::string>("scene", "scene file");
     Argv a{"prog", "scene.txt"};
     app.parse(a.argc(), a.argv());
     EXPECT_EQ(scene.get(), "scene.txt");
@@ -181,7 +174,7 @@ TEST(RequiredPositional, PresentParses) {
 
 TEST(RequiredPositional, UsageNotBracketed) {
     clap::App app{"prog", "d"};
-    app.positional<std::string>("scene", "scene file").required();
+    app.positional<std::string>("scene", "scene file");
     EXPECT_EQ(app.usage(), "Usage: prog [-h] <scene>");
 }
 
