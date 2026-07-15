@@ -1,0 +1,14 @@
+PROJECT_NAME           = clap
+PROJECT_BRIEF          = "Lightweight header-only C++ command line argument parser"
+OUTPUT_DIRECTORY       = docs
+INPUT                  = README.md include
+FILE_PATTERNS          = *.hpp *.md
+USE_MDFILE_AS_MAINPAGE = README.md
+RECURSIVE              = YES
+EXTRACT_ALL            = YES
+EXTRACT_PRIVATE        = NO
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+HAVE_DOT               = YES
+QUIET                  = YES
+WARN_IF_UNDOCUMENTED   = NO
