@@ -227,21 +227,12 @@ namespace clap {
 
 // ===== ParseValue.hpp =====
 namespace clap {
-    /// True when T can be read from a stream via operator>>, i.e. the default
-    /// ParseValue can handle it. Custom types without a specialization fail this.
     template<typename T>
     concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
 
-    /// True when T can be written to a stream via operator<<, i.e. clap can
-    /// render its default value in help output. Custom types must provide this.
     template<typename T>
     concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
 
-    /// Converts a string into T. The primary template is declared but only
-    /// *defined* for stream-extractable types (below), so a type with neither
-    /// operator>> nor a ParseValue specialization has no ParseValue at all --
-    /// which makes clap::Parseable<T> cleanly false instead of a hard error.
-    /// Specialize this for custom parsing (see examples/custom_type).
     template<typename T>
     struct ParseValue;
 
@@ -264,9 +255,7 @@ namespace clap {
         }
     };
 
-    /// True when clap can turn a string into T: either T has operator>> (default
-    /// parser) or the user specialized ParseValue<T>. False types have no
-    /// ParseValue definition, so this is a clean concept, not a compile error.
+    /// either ParseValue<T> is specialized, or T is stream-extractable. 
     template<typename T>
     concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
 
