@@ -26,6 +26,12 @@ namespace clap {
             /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
             Option<T>& option(std::string names, std::string description) {
+                static_assert(OptionValue<T>,
+                    "clap: this option's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
                 auto &ref = *option;
                 add_argument(std::move(option));
@@ -43,6 +49,10 @@ namespace clap {
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
             MultiOption<T>& multi_option(std::string names, std::string description) {
+                static_assert(Parseable<T>,
+                    "clap: this option's value type cannot be parsed from a string. "
+                    "Give it operator>> or specialize clap::ParseValue<T> (and "
+                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
                 auto& ref = *opt;
                 add_argument(std::move(opt));
@@ -52,6 +62,12 @@ namespace clap {
             /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
             Positional<T>& positional(std::string name, std::string description) {
+                static_assert(OptionValue<T>,
+                    "clap: this positional's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
                 auto &ref = *pos;
                 _positionals.push_back(std::move(pos));

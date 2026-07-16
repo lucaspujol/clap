@@ -30,8 +30,10 @@
 #define CLAP_HPP
 
 #include <exception>
+#include <istream>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -225,9 +227,27 @@ namespace clap {
 
 // ===== ParseValue.hpp =====
 namespace clap {
-    /// Converts a string into T with operator>>. Specialize for custom parsing.
+    /// True when T can be read from a stream via operator>>, i.e. the default
+    /// ParseValue can handle it. Custom types without a specialization fail this.
     template<typename T>
-    struct ParseValue {
+    concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
+
+    /// True when T can be written to a stream via operator<<, i.e. clap can
+    /// render its default value in help output. Custom types must provide this.
+    template<typename T>
+    concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
+
+    /// Converts a string into T. The primary template is declared but only
+    /// *defined* for stream-extractable types (below), so a type with neither
+    /// operator>> nor a ParseValue specialization has no ParseValue at all --
+    /// which makes clap::Parseable<T> cleanly false instead of a hard error.
+    /// Specialize this for custom parsing (see examples/custom_type).
+    template<typename T>
+    struct ParseValue;
+
+    /// Default parser for any type readable with operator>>.
+    template<StreamExtractable T>
+    struct ParseValue<T> {
         static T parse(std::string_view str) {
             std::istringstream iss{std::string(str)};
             T val;
@@ -243,6 +263,17 @@ namespace clap {
             return std::string(str);
         }
     };
+
+    /// True when clap can turn a string into T: either T has operator>> (default
+    /// parser) or the user specialized ParseValue<T>. False types have no
+    /// ParseValue definition, so this is a clean concept, not a compile error.
+    template<typename T>
+    concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
+
+    /// The full contract for a clap value type: parseable from a string, and
+    /// printable via operator<< so its default value can appear in help output.
+    template<typename T>
+    concept OptionValue = Parseable<T> && StreamInsertable<T>;
 
     /// Parses value into T, turning any failure into an InvalidValue error.
     template<typename T>
@@ -476,6 +507,12 @@ namespace clap {
             /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
             Option<T>& option(std::string names, std::string description) {
+                static_assert(OptionValue<T>,
+                    "clap: this option's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
                 auto &ref = *option;
                 add_argument(std::move(option));
@@ -493,6 +530,10 @@ namespace clap {
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
             MultiOption<T>& multi_option(std::string names, std::string description) {
+                static_assert(Parseable<T>,
+                    "clap: this option's value type cannot be parsed from a string. "
+                    "Give it operator>> or specialize clap::ParseValue<T> (and "
+                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
                 auto& ref = *opt;
                 add_argument(std::move(opt));
@@ -502,6 +543,12 @@ namespace clap {
             /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
             Positional<T>& positional(std::string name, std::string description) {
+                static_assert(OptionValue<T>,
+                    "clap: this positional's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
                 auto &ref = *pos;
                 _positionals.push_back(std::move(pos));
