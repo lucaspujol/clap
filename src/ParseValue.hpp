@@ -9,6 +9,7 @@
 #include "ClapExceptions.hpp"
 
 namespace clap {
+    /// Converts a string into T with operator>>. Specialize for custom parsing.
     template<typename T>
     concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
 
