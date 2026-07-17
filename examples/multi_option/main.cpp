@@ -8,16 +8,12 @@
 int main(int argc, char** argv) {
     clap::App app(argv[0], "Collect repeated values");
 
+    auto& help = app.flag("-h,--help", "Show this help message");
     auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)").required();
 
-    try {
-        app.parse(argc, argv);
-    } catch (const clap::HelpRequested&) {
-        return 0;
-    } catch (const clap::ClapException& e) {
-        std::cerr << app.usage() << "\nError: " << e.what() << "\n";
-        return 1;
-    }
+    bool ok = app.parse(argc, argv);
+    if (help) { std::cout << app.help(); return 0; }
+    if (!ok)  { std::cerr << app.error(); return 1; }
 
     std::cout << tags.get().size() << " tags:\n";
     for (const auto& t : tags.get())

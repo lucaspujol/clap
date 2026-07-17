@@ -8,18 +8,14 @@
 int main(int argc, char** argv) {
     clap::App app(argv[0], "Short-flag clustering");
 
+    auto& help    = app.flag("-h,--help", "Show this help message");
     auto& verbose = app.flag("-v,--verbose", "Verbose");
     auto& force   = app.flag("-f,--force", "Force");
     auto& count   = app.option<int>("-c,--count", "Count").default_value(0);
 
-    try {
-        app.parse(argc, argv);
-    } catch (const clap::HelpRequested&) {
-        return 0;
-    } catch (const clap::ClapException& e) {
-        std::cerr << app.usage() << "\nError: " << e.what() << "\n";
-        return 1;
-    }
+    bool ok = app.parse(argc, argv);
+    if (help) { std::cout << app.help(); return 0; }
+    if (!ok)  { std::cerr << app.error(); return 1; }
 
     std::cout << "verbose=" << (verbose ? 1 : 0)
               << " force=" << (force ? 1 : 0)

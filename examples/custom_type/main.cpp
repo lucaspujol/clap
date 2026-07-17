@@ -6,6 +6,8 @@
 #define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
+#include <iostream>
+
 enum class Mode { Fast, Safe, Debug };
 
 std::ostream& operator<<(std::ostream& os, Mode m) {
@@ -35,17 +37,13 @@ namespace clap {
 int main(int argc, char** argv) {
     clap::App app(argv[0], "Custom type example");
 
+    auto& help = app.flag("-h,--help", "Show this help message");
     auto& mode = app.option<Mode>("-m,--mode", "Run mode: fast|safe|debug")
                      .default_value(Mode::Safe);
 
-    try {
-        app.parse(argc, argv);
-    } catch (const clap::HelpRequested&) {
-        return 0;
-    } catch (const clap::ClapException& e) {
-        std::cerr << app.usage() << "\nError: " << e.what() << "\n";
-        return 1;
-    }
+    bool ok = app.parse(argc, argv);
+    if (help) { std::cout << app.help(); return 0; }
+    if (!ok)  { std::cerr << app.error(); return 1; }
 
     std::cout << "mode = " << mode.get() << "\n";
     return 0;
