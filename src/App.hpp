@@ -4,6 +4,7 @@
 #include "Flag.hpp"
 #include "Positional.hpp"
 #include "MultiOption.hpp"
+#include "ClapExceptions.hpp"
 
 #include <string>
 #include <vector>
@@ -74,15 +75,19 @@ namespace clap {
                 return ref;
             }
 
-            /// Remove the built-in -h/--help, freeing those names for your own use.
-            App& no_auto_help();
-            /// Rename the built-in help flag, e.g. help_flag("-?,--help").
-            App& help_flag(std::string names);
-
-            /// Parse argv. Throws a ClapException on error, or HelpRequested on -h.
-            void parse(int argc, char **argv);
+            /// Parse argv. Never throws on bad input; returns true on success,
+            /// false if an error was recorded (see error()/error_kind()). It fills
+            /// every value it can regardless. Registration still throws ConfigError.
+            bool parse(int argc, char **argv);
+            /// Full help message.
+            std::string help() const;
             /// One-line usage summary string.
             std::string usage() const;
+
+            /// The error text to print (message + usage line), empty when parse() succeeded.
+            const std::string& error() const noexcept { return _error; }
+            /// Which error parse() recorded. Precondition: parse() returned false.
+            ErrorKind error_kind() const noexcept { return _error_kind; }
 
         private:
             std::string _name;
@@ -90,19 +95,18 @@ namespace clap {
             std::vector<std::unique_ptr<Argument>> _arguments;
             std::vector<std::unique_ptr<Argument>> _positionals;
             size_t _positional_idx = 0;
-            Flag* _help = nullptr;
+            std::string _error;
+            ErrorKind _error_kind{};
 
             void add_argument(std::unique_ptr<Argument> arg);
-            void remove_help();
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
+            void dispatch(std::string_view token, ArgCursor& cursor);
             void handle_positional(std::string_view token);
             void parse_long_equals(std::string_view token);
             void parse_short_cluster(std::string_view token, ArgCursor& cursor);
             void parse_single(std::string_view token, ArgCursor& cursor);
             void check_required() const;
-
-            void print_help() const;
     };
 }
