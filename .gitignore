@@ -54,3 +54,5 @@ examples/**
 !examples/**/
 !examples/**/*.cpp
 !examples/**/*.hpp
+!examples/**/CMakeLists.txt
+examples/**/build/
