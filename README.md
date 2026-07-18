@@ -57,22 +57,26 @@ Linking `clap` puts the header on your include path. You still define
 int main(int argc, char** argv) {
     clap::App app(argv[0], "example program");
 
+    auto& help = app.flag("-h,--help", "Show this help message");
     auto& name = app.option<std::string>("-n,--name", "your name")
                      .default_value("world");
 
-    try {
-        app.parse(argc, argv);
-    } catch (const clap::HelpRequested&) {
-        return 0;
-    } catch (const clap::ClapException& e) {
-        std::cerr << app.usage() << "\nError: " << e.what() << "\n";
-        return 1;
-    }
+    bool ok = app.parse(argc, argv);
+    if (help) { std::cout << app.help();  return 0; }
+    if (!ok)  { std::cerr << app.error(); return 1; }
 
     std::cout << "Hello, " << name.get() << "\n";
     return 0;
 }
 ```
+
+`parse` never throws on bad input. It fills every value it can, records the
+first error, and returns `true` on success or `false` otherwise. You own the
+help flag: register it like any other, then print `app.help()` when it is set.
+Because the whole argv is parsed before you react, checking `help` first lets it
+win over a missing-required error. Nothing prints or exits behind your back — if
+you want that convenience, wrap the `App` in your own class (see
+`examples/encapsulated`).
 
 ## Building the examples and tests
 
@@ -91,21 +95,27 @@ Each example builds into its own folder under `examples/`.
 - Typed options. Values parsed into a type, for example
   `app.option<int>("-c,--count", ...)`. Read with `.get()`.
 - Default values. `option<int>(...).default_value(10)` uses the default when
-  the option is absent.
+  the option is absent. For a fallback computed at runtime (from another
+  argument, the environment, ...) read it with `.get_or(fallback)` instead.
 - Positional arguments. Order-based arguments with no dash, registered with
   `app.positional<T>(...)`.
 - Repeatable multi-value options. Pass the same flag more than once to build a
   list, for example `-t a -t b`. Registered with `app.multi_option<T>(...)`.
 - Required and optional arguments. Mark an argument required with
   `.required()`. Parsing fails if it is missing.
-- Short flag clustering. Combine short flags like `-vf`, attach values like
-  `-c10`, and accept negatives like `-c-5`.
+- Short flag clustering. Combine short flags like `-vf` and attach values like
+  `-c10`. Negatives work in the attached form (`-c-5`, `--count=-5`); a spaced
+  `-c -5` is rejected because `-5` looks like a flag.
 - Long options with equals. Both `--count 10` and `--count=10` work.
 - Custom value types. Teach clap your own type by specializing
   `clap::TypeName` and `clap::ParseValue`. See `examples/custom_type`.
-- Typed error handling. Parsing throws specific exceptions such as
-  `MissingValue`, `InvalidValue`, and `UnknownArgument`, all deriving from
-  `ClapException`.
-- Automatic help. A `-h,--help` flag is added by default and prints generated
-  usage and option listings. It can be renamed with `help_flag(...)` or turned
-  off with `no_auto_help()`.
+- Errors without exceptions. `parse` never throws on bad input: it returns
+  `false` and records the first error. Read the printable message plus usage
+  line with `app.error()`, and the category with `app.error_kind()`
+  (`UnknownArgument`, `MissingValue`, `InvalidValue`, ...). Only misconfiguring
+  the parser (duplicate or malformed names) throws — a `ConfigError` at
+  registration, because that is a bug in your program, not the user's input.
+- Help is just a flag. clap registers nothing automatically. Register
+  `-h,--help` (or any name you like) yourself, and print `app.help()` when it is
+  set. This keeps the names free when you want them and never forces behaviour
+  on you. See `examples/custom_help`.
