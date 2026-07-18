@@ -23,11 +23,13 @@
  * Include this header and use the clap namespace to parse command line arguments.
  *
  * @author Lucas Pujol
- * @version 1.0
+ * @version dev
  */
 
 #ifndef CLAP_HPP
 #define CLAP_HPP
+
+#define CLAP_VERSION "dev"
 
 #include <exception>
 #include <istream>

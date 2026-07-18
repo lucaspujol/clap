@@ -2,11 +2,15 @@
 """amalgamate src/ into a single header file in include/clap.hpp"""
 
 from pathlib import Path
+import os
 import re
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 OUT = ROOT / "include" / "clap.hpp"
+
+# version stamped into the header; release CI overrides via CLAP_VERSION=<tag>
+VERSION = os.environ.get("CLAP_VERSION", "dev")
 
 # hardcoded dep order
 # could topologically sort the deps but this is easier
@@ -85,12 +89,14 @@ out.append(" * @section Usage")
 out.append(" * Include this header and use the clap namespace to parse command line arguments.")
 out.append(" *")
 out.append(" * @author Lucas Pujol")
-out.append(" * @version 1.0")
+out.append(f" * @version {VERSION}")
 out.append(" */")
 out.append("")
 
 out.append("#ifndef CLAP_HPP")
 out.append("#define CLAP_HPP")
+out.append("")
+out.append(f'#define CLAP_VERSION "{VERSION}"')
 out.append("")
 out += sorted(hdr_inc)
 out.append("")

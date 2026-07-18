@@ -1,5 +1,12 @@
 # clap
 
+[![ci](https://github.com/lucaspujol/clap/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspujol/clap/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/lucaspujol/clap?sort=semver)](https://github.com/lucaspujol/clap/releases/latest)
+[![docs](https://img.shields.io/badge/docs-doxygen-blue)](https://lucaspujol.github.io/clap/)
+![C++20](https://img.shields.io/badge/C%2B%2B-20-blue)
+![header-only](https://img.shields.io/badge/header--only-yes-brightgreen)
+[![license](https://img.shields.io/github/license/lucaspujol/clap)](LICENSE)
+
 A lightweight, header-only C++ command line argument parser.
 
 ## Requirements
@@ -12,7 +19,14 @@ clap ships as a single header. You only need `include/clap.hpp`.
 
 ### Option 1: download the header
 
-Download the header into your project:
+Grab the header from the [latest release](https://github.com/lucaspujol/clap/releases/latest)
+(carries a `#define CLAP_VERSION` stamp and a `clap.hpp.sha256` you can verify against):
+
+```sh
+curl -LO https://github.com/lucaspujol/clap/releases/latest/download/clap.hpp
+```
+
+Or track the bleeding edge from `main`:
 
 ```sh
 curl -O https://raw.githubusercontent.com/lucaspujol/clap/main/include/clap.hpp
