@@ -8,10 +8,15 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_library(clap INTERFACE)
 target_include_directories(clap INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
+# Examples and tests are only for developing clap itself.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+
 # --- Examples: one binary per examples/<name>/ subdir, built from all its .cpp ---
 file(GLOB EXAMPLE_DIRS LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/examples/*)
 foreach(example_dir ${EXAMPLE_DIRS})
-    if(IS_DIRECTORY ${example_dir})
+    # An example carrying its own CMakeLists.txt is a standalone project
+    # (e.g. fetchcontent/) — it configures itself, skip it here.
+    if(IS_DIRECTORY ${example_dir} AND NOT EXISTS ${example_dir}/CMakeLists.txt)
         file(GLOB example_srcs CONFIGURE_DEPENDS ${example_dir}/*.cpp)
         if(example_srcs)
             get_filename_component(example_name ${example_dir} NAME)
@@ -35,4 +40,6 @@ if(CLAP_BUILD_TESTS)
 
     enable_testing()
     add_test(NAME clap_tests COMMAND clap_tests)
+endif()
+
 endif()
