@@ -3,12 +3,14 @@
 #include <iostream>
 
 std::optional<int> Cli::parse(int argc, char** argv) {
-    try {
-        _app.parse(argc, argv);
-    } catch (const clap::HelpRequested&) {
+    bool ok = _app.parse(argc, argv);
+
+    if (_help) {
+        std::cout << _app.help();
         return 0;
-    } catch (const clap::ClapException& e) {
-        std::cerr << _app.usage() << "\nError: " << e.what() << "\n";
+    }
+    if (!ok) {
+        std::cerr << _app.error();
         return 84;
     }
     return std::nullopt;

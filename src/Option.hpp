@@ -60,6 +60,15 @@ namespace clap {
                 throw clap::MissingValue(std::string(names()));
             }
 
+            /// The parsed value, else the default, else a fallback. Never throws.
+            T get_or(T fallback) const {
+                if (_value.has_value())
+                    return _value.value();
+                if (_default_value.has_value())
+                    return _default_value.value();
+                return fallback;
+            }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;

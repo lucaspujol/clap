@@ -41,6 +41,20 @@
 
 // ===== ClapExceptions.hpp =====
 namespace clap {
+    /// What kind of error App::parse() recorded. Query via App::error_kind().
+    enum class ErrorKind {
+        /// A token was passed that matches no registered argument.
+        UnknownArgument,
+        /// A value-taking argument was given no value.
+        MissingValue,
+        /// A flag was given a value, e.g. --verbose=1.
+        UnexpectedValue,
+        /// A value had the wrong format for its type.
+        InvalidValue,
+        /// A required argument was absent.
+        MissingRequiredValue,
+    };
+
     /// Base of every clap error. Catch this to handle them all.
     class ClapException : public std::exception {
         public:
@@ -54,54 +68,78 @@ namespace clap {
             std::string _message;
     };
 
+    /// Base of the errors App::parse() reports. parse() catches these internally
+    /// and records them as error state, so they never escape it. They still
+    /// surface from Option::get() and friends, where they mean the caller read a
+    /// value that was never set.
+    class ParseException : public ClapException {
+        public:
+            ParseException(ErrorKind kind, const std::string& message)
+                : ClapException(message), _kind(kind) {}
+
+            /// Which ErrorKind this maps to in App::error_kind().
+            ErrorKind kind() const noexcept { return _kind; }
+
+        private:
+            ErrorKind _kind;
+    };
+
     /// An argument was passed that was never registered.
-    class UnknownArgument : public ClapException {
+    class UnknownArgument : public ParseException {
         public:
             UnknownArgument(const std::string& arg)
-                : ClapException("Unknown argument: " + arg) {}
+                : ParseException(ErrorKind::UnknownArgument,
+                                 "Unknown argument: " + arg) {}
     };
 
     /// A value-taking argument was given no value.
-    class MissingValue : public ClapException {
+    class MissingValue : public ParseException {
         public:
             MissingValue(const std::string& arg)
-                : ClapException("Missing value for argument: " + arg) {}
+                : ParseException(ErrorKind::MissingValue,
+                                 "Missing value for argument: " + arg) {}
+    };
+
+    /// A flag was given a value, e.g. --verbose=1.
+    class UnexpectedValue : public ParseException {
+        public:
+            UnexpectedValue(const std::string& arg)
+                : ParseException(ErrorKind::UnexpectedValue,
+                                 "flag '" + arg + "' does not take a value") {}
     };
 
     /// A required argument was missing.
-    class MissingRequiredArgument : public ClapException {
+    class MissingRequiredArgument : public ParseException {
         public:
             MissingRequiredArgument(const std::string& arg)
-                : ClapException("Missing required argument: " + arg) {}
+                : ParseException(ErrorKind::MissingRequiredValue,
+                                 "Missing required argument: " + arg) {}
     };
 
-    /// The parser was set up wrong. Thrown while registering, not while parsing.
+    /// A value had the wrong format for its type.
+    class InvalidValue : public ParseException {
+        public:
+            InvalidValue(const std::string& value, const std::string& arg,
+                         const std::string& type)
+                : ParseException(ErrorKind::InvalidValue,
+                                 "invalid value '" + value + "' for '" + arg + "'"
+                                 + (type.empty() ? "" : " (expected " + type + ")")) {}
+    };
+
+    /// The parser was set up wrong. Thrown while registering, not while parsing,
+    /// so parse() never catches it: it means the program itself is buggy.
     class ConfigError : public ClapException {
         public:
             ConfigError(const std::string& msg)
                 : ClapException("Configuration error: " + msg) {}
     };
 
-    /// Thrown when help is requested. Not a failure: catch it and exit 0.
-    class HelpRequested : public ClapException {
-        public:
-            HelpRequested() : ClapException("Help requested") {}
-    };
-
-    /// A raw value failed to parse. Usually surfaces to the user as InvalidValue.
+    /// A raw value failed to parse. Internal signal from a ParseValue
+    /// specialization; parse_checked() turns it into an InvalidValue.
     class ParseError : public ClapException {
         public:
             ParseError(const std::string& msg)
                 : ClapException("Parse error: " + msg) {}
-    };
-
-    /// A value had the wrong format for its type.
-    class InvalidValue : public ClapException {
-        public:
-            InvalidValue(const std::string& value, const std::string& arg,
-                         const std::string& type)
-                : ClapException("invalid value '" + value + "' for '" + arg + "'"
-                    + (type.empty() ? "" : " (expected " + type + ")")) {}
     };
 }
 
@@ -349,6 +387,15 @@ namespace clap {
                 throw clap::MissingValue(std::string(names()));
             }
 
+            /// The parsed value, else the default, else a fallback. Never throws.
+            T get_or(T fallback) const {
+                if (_value.has_value())
+                    return _value.value();
+                if (_default_value.has_value())
+                    return _default_value.value();
+                return fallback;
+            }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
@@ -545,15 +592,19 @@ namespace clap {
                 return ref;
             }
 
-            /// Remove the built-in -h/--help, freeing those names for your own use.
-            App& no_auto_help();
-            /// Rename the built-in help flag, e.g. help_flag("-?,--help").
-            App& help_flag(std::string names);
-
-            /// Parse argv. Throws a ClapException on error, or HelpRequested on -h.
-            void parse(int argc, char **argv);
+            /// Parse argv. Never throws on bad input; returns true on success,
+            /// false if an error was recorded (see error()/error_kind()). It fills
+            /// every value it can regardless. Registration still throws ConfigError.
+            bool parse(int argc, char **argv);
+            /// Full help message.
+            std::string help() const;
             /// One-line usage summary string.
             std::string usage() const;
+
+            /// The error text to print (message + usage line), empty when parse() succeeded.
+            const std::string& error() const noexcept { return _error; }
+            /// Which error parse() recorded. Precondition: parse() returned false.
+            ErrorKind error_kind() const noexcept { return _error_kind; }
 
         private:
             std::string _name;
@@ -561,20 +612,19 @@ namespace clap {
             std::vector<std::unique_ptr<Argument>> _arguments;
             std::vector<std::unique_ptr<Argument>> _positionals;
             size_t _positional_idx = 0;
-            Flag* _help = nullptr;
+            std::string _error;
+            ErrorKind _error_kind{};
 
             void add_argument(std::unique_ptr<Argument> arg);
-            void remove_help();
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
+            void dispatch(std::string_view token, ArgCursor& cursor);
             void handle_positional(std::string_view token);
             void parse_long_equals(std::string_view token);
             void parse_short_cluster(std::string_view token, ArgCursor& cursor);
             void parse_single(std::string_view token, ArgCursor& cursor);
             void check_required() const;
-
-            void print_help() const;
     };
 }
 
@@ -586,7 +636,6 @@ namespace clap {
 
 #include <algorithm>
 #include <iomanip>
-#include <iostream>
 
 // ===== HelpFormatter.cpp =====
 std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
@@ -677,7 +726,6 @@ std::string clap::HelpFormatter::help() const {
 // ===== App.cpp =====
 clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
-    _help = &flag("-h,--help", "Show this help message");
 }
 
 void clap::App::add_argument(std::unique_ptr<Argument> arg) {
@@ -693,28 +741,6 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
-void clap::App::remove_help() {
-    if (!_help)
-        return;
-    for (auto it = _arguments.begin(); it != _arguments.end(); ++it)
-        if (it->get() == _help) {
-            _arguments.erase(it);
-            break;
-        }
-    _help = nullptr;
-}
-
-clap::App& clap::App::no_auto_help() {
-    remove_help();
-    return *this;
-}
-
-clap::App& clap::App::help_flag(std::string names) {
-    remove_help();
-    _help = &flag(std::move(names), "Show this help message");
-    return *this;
-}
-
 clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
@@ -726,37 +752,53 @@ bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
         str.compare(0, prefix.size(), prefix) == 0;
 }
 
+std::string clap::App::help() const {
+    return HelpFormatter(_name, _description, _arguments, _positionals).help();
+}
+
 std::string clap::App::usage() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
-void clap::App::print_help() const {
-    std::cout << HelpFormatter(_name, _description, _arguments, _positionals).help();
+void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
+    if (!starts_with(token, "-"))
+        handle_positional(token);
+    else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
+        parse_long_equals(token);
+    else if (!starts_with(token, "--") && token.size() > 2)
+        parse_short_cluster(token, cursor);
+    else
+        parse_single(token, cursor);
 }
 
-
-void clap::App::parse(int argc, char **argv) {
+bool clap::App::parse(int argc, char **argv) {
     ArgCursor cursor(argc, argv);
+    std::optional<clap::ParseException> failure;
 
     while (cursor.has_next()) {
-        std::string_view token = cursor.next();
-
-        if (!starts_with(token, "-"))
-            handle_positional(token);
-        else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
-            parse_long_equals(token);
-        else if (!starts_with(token, "--") && token.size() > 2)
-            parse_short_cluster(token, cursor);
-        else
-            parse_single(token, cursor);
+        try {
+            dispatch(cursor.next(), cursor);
+        } catch (const clap::ParseException& e) {
+            if (!failure)
+                failure = e;
+        }
     }
 
-    if (_help && *_help) {
-        print_help();
-        throw clap::HelpRequested();
+    if (!failure) {
+        try {
+            check_required();
+        } catch (const clap::ParseException& e) {
+            failure = e;
+        }
     }
 
-    check_required();
+    if (failure) {
+        _error = "Error: " + std::string(failure->what()) + "\n" + usage() + "\n";
+        _error_kind = failure->kind();
+        return false;
+    }
+    _error.clear();
+    return true;
 }
 
 void clap::App::handle_positional(std::string_view token) {
@@ -774,7 +816,7 @@ void clap::App::parse_long_equals(std::string_view token) {
     if (!arg)
         throw clap::UnknownArgument(std::string(arg_name));
     if (!arg->takes_value())
-        throw clap::ParseError("flag '" + std::string(arg_name) + "' does not take a value");
+        throw clap::UnexpectedValue(std::string(arg_name));
     arg->parse(arg_value);
 }
 

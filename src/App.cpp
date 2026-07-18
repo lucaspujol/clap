@@ -2,11 +2,11 @@
 #include "ArgCursor.hpp"
 #include "ClapExceptions.hpp"
 #include "HelpFormatter.hpp"
-#include <iostream>
+#include <optional>
+#include <string>
 
 clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
-    _help = &flag("-h,--help", "Show this help message");
 }
 
 void clap::App::add_argument(std::unique_ptr<Argument> arg) {
@@ -22,28 +22,6 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
-void clap::App::remove_help() {
-    if (!_help)
-        return;
-    for (auto it = _arguments.begin(); it != _arguments.end(); ++it)
-        if (it->get() == _help) {
-            _arguments.erase(it);
-            break;
-        }
-    _help = nullptr;
-}
-
-clap::App& clap::App::no_auto_help() {
-    remove_help();
-    return *this;
-}
-
-clap::App& clap::App::help_flag(std::string names) {
-    remove_help();
-    _help = &flag(std::move(names), "Show this help message");
-    return *this;
-}
-
 clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
@@ -55,37 +33,53 @@ bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
         str.compare(0, prefix.size(), prefix) == 0;
 }
 
+std::string clap::App::help() const {
+    return HelpFormatter(_name, _description, _arguments, _positionals).help();
+}
+
 std::string clap::App::usage() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
-void clap::App::print_help() const {
-    std::cout << HelpFormatter(_name, _description, _arguments, _positionals).help();
+void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
+    if (!starts_with(token, "-"))
+        handle_positional(token);
+    else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
+        parse_long_equals(token);
+    else if (!starts_with(token, "--") && token.size() > 2)
+        parse_short_cluster(token, cursor);
+    else
+        parse_single(token, cursor);
 }
 
-
-void clap::App::parse(int argc, char **argv) {
+bool clap::App::parse(int argc, char **argv) {
     ArgCursor cursor(argc, argv);
+    std::optional<clap::ParseException> failure;
 
     while (cursor.has_next()) {
-        std::string_view token = cursor.next();
-
-        if (!starts_with(token, "-"))
-            handle_positional(token);
-        else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
-            parse_long_equals(token);
-        else if (!starts_with(token, "--") && token.size() > 2)
-            parse_short_cluster(token, cursor);
-        else
-            parse_single(token, cursor);
+        try {
+            dispatch(cursor.next(), cursor);
+        } catch (const clap::ParseException& e) {
+            if (!failure)
+                failure = e;
+        }
     }
 
-    if (_help && *_help) {
-        print_help();
-        throw clap::HelpRequested();
+    if (!failure) {
+        try {
+            check_required();
+        } catch (const clap::ParseException& e) {
+            failure = e;
+        }
     }
 
-    check_required();
+    if (failure) {
+        _error = "Error: " + std::string(failure->what()) + "\n" + usage() + "\n";
+        _error_kind = failure->kind();
+        return false;
+    }
+    _error.clear();
+    return true;
 }
 
 void clap::App::handle_positional(std::string_view token) {
@@ -103,7 +97,7 @@ void clap::App::parse_long_equals(std::string_view token) {
     if (!arg)
         throw clap::UnknownArgument(std::string(arg_name));
     if (!arg->takes_value())
-        throw clap::ParseError("flag '" + std::string(arg_name) + "' does not take a value");
+        throw clap::UnexpectedValue(std::string(arg_name));
     arg->parse(arg_value);
 }
 
