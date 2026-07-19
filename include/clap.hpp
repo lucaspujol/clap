@@ -469,7 +469,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
-            /// Set a fallback value, making the positional optional.
+            /// Set a fallback value, making the positional optional. 
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;
