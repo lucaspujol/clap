@@ -26,8 +26,7 @@
  * @version dev
  */
 
-#ifndef CLAP_HPP
-#define CLAP_HPP
+#pragma once
 
 #define CLAP_VERSION "dev"
 
@@ -669,11 +668,7 @@ namespace clap {
     };
 }
 
-#endif // CLAP_HPP
-
 #ifdef CLAP_IMPLEMENTATION
-#ifndef CLAP_IMPLEMENTATION_INCLUDED
-#define CLAP_IMPLEMENTATION_INCLUDED
 
 #include <algorithm>
 #include <cctype>
@@ -953,5 +948,4 @@ void clap::App::check_required() const {
             throw clap::MissingRequiredArgument(std::string(pos->names()));
 }
 
-#endif // CLAP_IMPLEMENTATION_INCLUDED
 #endif // CLAP_IMPLEMENTATION
