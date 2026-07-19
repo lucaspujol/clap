@@ -5,10 +5,7 @@
 namespace clap {
     /// Label shown for a value type in help output, e.g. "<int>".
     /// Specialize for a custom type to give it a name.
-    template<typename T>
-    struct TypeName {
-        static constexpr std::string_view value = "unknown";
-    };
+    template<typename T> struct TypeName    { static constexpr std::string_view value = "unknown"; };
 
     template<> struct TypeName<int>         { static constexpr std::string_view value = "int"; };
     template<> struct TypeName<float>       { static constexpr std::string_view value = "float"; };
