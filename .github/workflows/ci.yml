@@ -6,19 +6,24 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  header-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
 
       - name: Verify single header is up to date
         run: |
           python3 tools/build_single_header.py
           git diff --exit-code include/clap.hpp \
             || { echo "::error::include/clap.hpp is stale — rerun tools/build_single_header.py and commit"; exit 1; }
+
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
 
       - name: Configure
         run: cmake -S . -B build
