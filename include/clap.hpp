@@ -741,8 +741,11 @@ namespace {
         return true;
     }
 
-    // Accepts exactly: -f (single dash, single char), -flag (single dash, long),
-    // --flag (double dash, long). Anything else -- --f, spaces, ---, bare -- is out.
+    // accepts exactly three formats:
+    // -f (single dash, single char)
+    // -flag (single dash, long)
+    // --flag (double dash, long)
+    // Anything else -- --f, spaces, --- is out.
     bool valid_option_name(std::string_view name) {
         if (name.size() < 2 || name[0] != '-')
             return false;
