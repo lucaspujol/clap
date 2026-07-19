@@ -36,6 +36,7 @@
 #include <memory>
 #include <optional>
 #include <ostream>
+#include <source_location>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -134,6 +135,25 @@ namespace clap {
         public:
             ConfigError(const std::string& msg)
                 : ClapException("Configuration error: " + msg) {}
+
+            /// Located, clang-style:
+            /// "file:line:col: error: <msg>".
+            /// loc points at the caller that registered the offending argument.
+            ConfigError(const std::source_location& loc, const std::string& msg)
+                : ClapException("\n" + prefix(loc) + "error: " + msg) {}
+
+            /// Redeclaration: as above, plus a "previous definition" line at prev.
+            ConfigError(const std::source_location& loc, const std::string& msg,
+                        const std::source_location& prev)
+                : ClapException("\n" + prefix(loc) + "error: " + msg + "\n" +
+                                prefix(prev) + "previous definition") {}
+
+        private:
+            static std::string prefix(const std::source_location& loc) {
+                return std::string(loc.file_name()) + ":" +
+                       std::to_string(loc.line()) + ":" +
+                       std::to_string(loc.column()) + ": ";
+            }
     };
 
     /// A raw value failed to parse. Internal signal from a ParseValue
@@ -200,6 +220,11 @@ namespace clap {
                 return best;
             }
 
+            /// Where this argument was registered, for diagnostics. Set by App
+            /// right after construction, so it points at the caller's site.
+            void set_location(const std::source_location& loc) noexcept { _loc = loc; }
+            const std::source_location& location() const noexcept { return _loc; }
+
             /// True if token matches one of this argument's names.
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
@@ -217,6 +242,7 @@ namespace clap {
             std::vector<std::string> _names;
             std::string _description;
             bool _required = false;
+            std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {
                 std::vector<std::string> tokens;
@@ -548,7 +574,8 @@ namespace clap {
 
             /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
-            Option<T>& option(std::string names, std::string description) {
+            Option<T>& option(std::string names, std::string description,
+                              std::source_location loc = std::source_location::current()) {
                 static_assert(OptionValue<T>,
                     "clap: this option's value type is not usable. clap needs to "
                     "parse it from a string (give it operator>> or specialize "
@@ -556,14 +583,17 @@ namespace clap {
                     "operator<<). Also specialize clap::TypeName<T> for its help "
                     "label -- see examples/custom_type.");
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
+                option->set_location(loc);
                 auto &ref = *option;
                 add_argument(std::move(option));
                 return ref;
             }
 
             /// Register a boolean flag, e.g. flag("-v,--verbose", "...").
-            Flag& flag(std::string names, std::string description) {
+            Flag& flag(std::string names, std::string description,
+                       std::source_location loc = std::source_location::current()) {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
+                flag->set_location(loc);
                 auto &ref = *flag;
                 add_argument(std::move(flag));
                 return ref;
@@ -571,12 +601,14 @@ namespace clap {
 
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
-            MultiOption<T>& multi_option(std::string names, std::string description) {
+            MultiOption<T>& multi_option(std::string names, std::string description,
+                                         std::source_location loc = std::source_location::current()) {
                 static_assert(Parseable<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
+                opt->set_location(loc);
                 auto& ref = *opt;
                 add_argument(std::move(opt));
                 return ref;
@@ -584,7 +616,8 @@ namespace clap {
 
             /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
-            Positional<T>& positional(std::string name, std::string description) {
+            Positional<T>& positional(std::string name, std::string description,
+                                      std::source_location loc = std::source_location::current()) {
                 static_assert(OptionValue<T>,
                     "clap: this positional's value type is not usable. clap needs to "
                     "parse it from a string (give it operator>> or specialize "
@@ -592,6 +625,7 @@ namespace clap {
                     "operator<<). Also specialize clap::TypeName<T> for its help "
                     "label -- see examples/custom_type.");
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
+                pos->set_location(loc);
                 auto &ref = *pos;
                 _positionals.push_back(std::move(pos));
                 return ref;
@@ -766,14 +800,16 @@ clap::App::App(std::string name, std::string description)
 
 void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
-        throw clap::ConfigError("argument registered with no valid name");
+        throw clap::ConfigError(arg->location(),
+            "argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
         if (!valid_option_name(n))
-            throw clap::ConfigError("invalid option name '" + n +
-                "' (expected -f, -flag or --flag)");
+            throw clap::ConfigError(arg->location(),
+                "invalid option name '" + n + "' (expected -f, -flag or --flag)");
         for (const auto& existing : _arguments)
             if (existing->matches(n))
-                throw clap::ConfigError("duplicate option name: " + n);
+                throw clap::ConfigError(arg->location(),
+                    "redeclaration of flag " + n, existing->location());
     }
     _arguments.push_back(std::move(arg));
 }
