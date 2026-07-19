@@ -2,9 +2,39 @@
 #include "ArgCursor.hpp"
 #include "ClapExceptions.hpp"
 #include "HelpFormatter.hpp"
+#include <cctype>
 #include <optional>
 #include <string>
 #include <string_view>
+
+namespace {
+    bool is_long_body(std::string_view body) {
+        if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
+            return false;
+        for (char c : body)
+            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+                return false;
+        return true;
+    }
+
+    // accepts exactly three formats:
+    // -f (single dash, single char)
+    // -flag (single dash, long)
+    // --flag (double dash, long)
+    // Anything else -- --f, spaces, --- is out.
+    bool valid_option_name(std::string_view name) {
+        if (name.size() < 2 || name[0] != '-')
+            return false;
+        if (name[1] == '-') {              // double dash: needs a long body
+            auto body = name.substr(2);
+            return body.size() >= 2 && is_long_body(body);
+        }
+        auto body = name.substr(1);        // single dash
+        if (body.size() == 1)              // short: any char but space or dash
+            return body[0] != '-' && !std::isspace(static_cast<unsigned char>(body[0]));
+        return is_long_body(body);         // single-dash long
+    }
+}
 
 clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
@@ -14,8 +44,9 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
         throw clap::ConfigError("argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
-        if (n[0] != '-')
-            throw clap::ConfigError("option name must start with '-': " + n);
+        if (!valid_option_name(n))
+            throw clap::ConfigError("invalid option name '" + n +
+                "' (expected -f, -flag or --flag)");
         for (const auto& existing : _arguments)
             if (existing->matches(n))
                 throw clap::ConfigError("duplicate option name: " + n);
