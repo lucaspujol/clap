@@ -189,7 +189,9 @@ namespace clap {
                   _description(std::move(description)) {}
             virtual ~Argument() = default;
 
-            /// Consume a raw token as this argument's value.
+            /// Consume a raw token as this argument's value. When discard is
+            /// true the token is still validated but the result is thrown away,
+            /// leaving the argument unset (used by the -/flag override syntax).
             virtual void parse(std::string_view value, bool discard = false) = 0;
             /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
@@ -289,13 +291,17 @@ namespace clap {
 
 // ===== ParseValue.hpp =====
 namespace clap {
-    /// Converts a string into T with operator>>. Specialize for custom parsing.
+    /// Satisfied when T can be read from an std::istream with operator>>.
     template<typename T>
     concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
 
+    /// Satisfied when T can be written to an std::ostream with operator<<.
     template<typename T>
     concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
 
+    /// Turns a string into a T. The customization point for value parsing:
+    /// specialize this for a type that operator>> cannot handle. See
+    /// examples/custom_type.
     template<typename T>
     struct ParseValue;
 
@@ -311,6 +317,8 @@ namespace clap {
         }
     };
 
+    /// Parser for std::string: takes the token verbatim, no stream parsing
+    /// (so values may contain spaces and never fail to parse).
     template<>
     struct ParseValue<std::string> {
         static std::string parse(std::string_view str) {
@@ -318,7 +326,8 @@ namespace clap {
         }
     };
 
-    /// either ParseValue<T> is specialized, or T is stream-extractable. 
+    /// Satisfied when T has a usable ParseValue: either ParseValue<T> is
+    /// specialized, or T is stream-extractable via the default parser.
     template<typename T>
     concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
 
@@ -633,6 +642,12 @@ namespace clap {
             /// Parse argv. Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
             /// every value it can regardless. Registration still throws ConfigError.
+            ///
+            /// Two special forms are recognised:
+            /// - "--" on its own: every token after it is treated as positional,
+            ///   even ones that look like flags.
+            /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
+            ///   validates the argument but discards its value, leaving it unset.
             bool parse(int argc, char **argv);
             /// Full help message.
             std::string help() const;
