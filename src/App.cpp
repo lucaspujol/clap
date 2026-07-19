@@ -42,14 +42,16 @@ clap::App::App(std::string name, std::string description)
 
 void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
-        throw clap::ConfigError("argument registered with no valid name");
+        throw clap::ConfigError(arg->location(),
+            "argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
         if (!valid_option_name(n))
-            throw clap::ConfigError("invalid option name '" + n +
-                "' (expected -f, -flag or --flag)");
+            throw clap::ConfigError(arg->location(),
+                "invalid option name '" + n + "' (expected -f, -flag or --flag)");
         for (const auto& existing : _arguments)
             if (existing->matches(n))
-                throw clap::ConfigError("duplicate option name: " + n);
+                throw clap::ConfigError(arg->location(),
+                    "redeclaration of flag " + n, existing->location());
     }
     _arguments.push_back(std::move(arg));
 }
