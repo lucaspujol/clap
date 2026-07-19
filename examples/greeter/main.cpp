@@ -13,6 +13,8 @@ int main(int argc, char** argv) {
     auto& shout = app.flag("-s,--shout", "Uppercase the greeting");
     auto& name  = app.option<std::string>("-n,--name", "Who to greet")
                       .default_value("world");
+    auto& rep = app.option<int>("-r,--repeat", "how many times you greet")
+                    .default_value(1);
 
     bool ok = app.parse(argc, argv);
     if (help) { std::cout << app.help(); return 0; }
@@ -23,6 +25,7 @@ int main(int argc, char** argv) {
         for (char& c : greeting)
             c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
 
-    std::cout << greeting << "\n";
+    for (int i = 0; i < rep.get(); ++i)
+        std::cout << greeting << std::endl;
     return 0;
 }
