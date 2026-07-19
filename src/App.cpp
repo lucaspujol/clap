@@ -4,6 +4,7 @@
 #include "HelpFormatter.hpp"
 #include <optional>
 #include <string>
+#include <string_view>
 
 clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
@@ -42,14 +43,24 @@ std::string clap::App::usage() const {
 }
 
 void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
-    if (!starts_with(token, "-"))
+    if (!starts_with(token, "-")) {
         handle_positional(token);
-    else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
-        parse_long_equals(token);
+        return;
+    }
+    size_t dashes = starts_with(token, "--") ? 2 : 1;
+    bool discard = token.size() > dashes && token[dashes] == '/';
+    std::string clean;
+    if (discard) {
+        clean = std::string(token.substr(0, dashes)) + std::string(token.substr(dashes + 1));
+        token = clean;
+    }
+
+    if (starts_with(token, "--") && token.find("=") != std::string_view::npos)
+        parse_long_equals(token, discard);
     else if (!starts_with(token, "--") && token.size() > 2)
-        parse_short_cluster(token, cursor);
+        parse_short_cluster(token, cursor, discard);
     else
-        parse_single(token, cursor);
+        parse_single(token, cursor, discard);
 }
 
 bool clap::App::parse(int argc, char **argv) {
@@ -89,7 +100,7 @@ void clap::App::handle_positional(std::string_view token) {
 }
 
 // --option=value
-void clap::App::parse_long_equals(std::string_view token) {
+void clap::App::parse_long_equals(std::string_view token, bool discard) {
     auto eq = token.find('=');
     auto arg_name  = token.substr(0, eq);
     auto arg_value = token.substr(eq + 1);
@@ -98,11 +109,11 @@ void clap::App::parse_long_equals(std::string_view token) {
         throw clap::UnknownArgument(std::string(arg_name));
     if (!arg->takes_value())
         throw clap::UnexpectedValue(std::string(arg_name));
-    arg->parse(arg_value);
+    arg->parse(arg_value, discard);
 }
 
 // short cluster: -vf, -c10, -c-5, -vc 10
-void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor) {
+void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
     for (size_t j = 1; j < token.size(); ++j) {
         std::string short_name{'-', token[j]};
         auto *arg = find_argument(short_name);
@@ -111,18 +122,18 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor) {
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
             if (!attached.empty())
-                arg->parse(attached);
+                arg->parse(attached, discard);
             else if (cursor.next_is_value())
-                arg->parse(cursor.next());
+                arg->parse(cursor.next(), discard);
             else
                 throw clap::MissingValue(short_name);
             return;
         }
-        arg->parse("");
+        arg->parse("", discard);
     }
 }
 
-void clap::App::parse_single(std::string_view token, ArgCursor& cursor) {
+void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
     auto *arg = find_argument(token);
     if (!arg)
         throw clap::UnknownArgument(std::string(token));
@@ -130,9 +141,9 @@ void clap::App::parse_single(std::string_view token, ArgCursor& cursor) {
     if (arg->takes_value()) {
         if (!cursor.next_is_value())
             throw clap::MissingValue(std::string(token));
-        arg->parse(cursor.next());
+        arg->parse(cursor.next(), discard);
     } else {
-        arg->parse("");
+        arg->parse("", discard);
     }
 }
 

@@ -104,9 +104,10 @@ namespace clap {
 
             void dispatch(std::string_view token, ArgCursor& cursor);
             void handle_positional(std::string_view token);
-            void parse_long_equals(std::string_view token);
-            void parse_short_cluster(std::string_view token, ArgCursor& cursor);
-            void parse_single(std::string_view token, ArgCursor& cursor);
             void check_required() const;
+
+            void parse_long_equals(std::string_view token, bool discard);
+            void parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard);
+            void parse_single(std::string_view token, ArgCursor& cursor, bool discard);
     };
 }

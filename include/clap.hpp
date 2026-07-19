@@ -149,10 +149,7 @@ namespace clap {
 namespace clap {
     /// Label shown for a value type in help output, e.g. "<int>".
     /// Specialize for a custom type to give it a name.
-    template<typename T>
-    struct TypeName {
-        static constexpr std::string_view value = "unknown";
-    };
+    template<typename T> struct TypeName    { static constexpr std::string_view value = "unknown"; };
 
     template<> struct TypeName<int>         { static constexpr std::string_view value = "int"; };
     template<> struct TypeName<float>       { static constexpr std::string_view value = "float"; };
@@ -174,7 +171,7 @@ namespace clap {
             virtual ~Argument() = default;
 
             /// Consume a raw token as this argument's value.
-            virtual void parse(std::string_view value) = 0;
+            virtual void parse(std::string_view value, bool discard = false) = 0;
             /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
@@ -326,7 +323,9 @@ namespace clap {
 
             operator bool() const noexcept { return _value; }
 
-            void parse(std::string_view) override { _value = true; }
+            void parse(std::string_view, bool discard) override {
+                if (!discard) _value = true;
+            }
             std::string_view type_name() const override { return ""; }
 
             bool is_set() const noexcept override { return _value; }
@@ -346,8 +345,9 @@ namespace clap {
             Option(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
-            void parse(std::string_view value) override {
-                _value = clap::parse_checked<T>(value, names(), type_name());
+            void parse(std::string_view value, bool discard) override {
+                auto v = clap::parse_checked<T>(value, names(), type_name());
+                if (!discard) _value = std::move(v);
             }
 
             std::string_view type_name() const override {
@@ -363,6 +363,7 @@ namespace clap {
                 return *this;
             }
 
+            /// option always takes a value, so this is true. (Flag overrides to false.)
             bool takes_value() const noexcept override { return true; }
 
             std::string default_str() const override {
@@ -413,8 +414,10 @@ namespace clap {
         MultiOption(std::string names, std::string description)
         : Argument(std::move(names), std::move(description)) {}
 
-        void parse(std::string_view value) override {
-            _values.push_back(clap::parse_checked<T>(value, names(), type_name()));
+        void parse(std::string_view value, bool discard) override {
+            auto v = clap::parse_checked<T>(value, names(), type_name());
+            if (!discard) _values.push_back(std::move(v));
+
         }
 
         std::string_view type_name() const override {
@@ -453,7 +456,7 @@ namespace clap {
             Positional(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
-            void parse(std::string_view value) override {
+            void parse(std::string_view value, bool) override {
                 _value = clap::parse_checked<T>(value, names(), type_name());
             }
 
@@ -466,7 +469,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
-            /// Set a fallback value, making the positional optional.
+            /// Set a fallback value, making the positional optional. 
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;
@@ -623,10 +626,11 @@ namespace clap {
 
             void dispatch(std::string_view token, ArgCursor& cursor);
             void handle_positional(std::string_view token);
-            void parse_long_equals(std::string_view token);
-            void parse_short_cluster(std::string_view token, ArgCursor& cursor);
-            void parse_single(std::string_view token, ArgCursor& cursor);
             void check_required() const;
+
+            void parse_long_equals(std::string_view token, bool discard);
+            void parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard);
+            void parse_single(std::string_view token, ArgCursor& cursor, bool discard);
     };
 }
 
@@ -763,14 +767,24 @@ std::string clap::App::usage() const {
 }
 
 void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
-    if (!starts_with(token, "-"))
+    if (!starts_with(token, "-")) {
         handle_positional(token);
-    else if (starts_with(token, "--") && token.find('=') != std::string_view::npos)
-        parse_long_equals(token);
+        return;
+    }
+    size_t dashes = starts_with(token, "--") ? 2 : 1;
+    bool discard = token.size() > dashes && token[dashes] == '/';
+    std::string clean;
+    if (discard) {
+        clean = std::string(token.substr(0, dashes)) + std::string(token.substr(dashes + 1));
+        token = clean;
+    }
+
+    if (starts_with(token, "--") && token.find("=") != std::string_view::npos)
+        parse_long_equals(token, discard);
     else if (!starts_with(token, "--") && token.size() > 2)
-        parse_short_cluster(token, cursor);
+        parse_short_cluster(token, cursor, discard);
     else
-        parse_single(token, cursor);
+        parse_single(token, cursor, discard);
 }
 
 bool clap::App::parse(int argc, char **argv) {
@@ -810,7 +824,7 @@ void clap::App::handle_positional(std::string_view token) {
 }
 
 // --option=value
-void clap::App::parse_long_equals(std::string_view token) {
+void clap::App::parse_long_equals(std::string_view token, bool discard) {
     auto eq = token.find('=');
     auto arg_name  = token.substr(0, eq);
     auto arg_value = token.substr(eq + 1);
@@ -819,11 +833,11 @@ void clap::App::parse_long_equals(std::string_view token) {
         throw clap::UnknownArgument(std::string(arg_name));
     if (!arg->takes_value())
         throw clap::UnexpectedValue(std::string(arg_name));
-    arg->parse(arg_value);
+    arg->parse(arg_value, discard);
 }
 
 // short cluster: -vf, -c10, -c-5, -vc 10
-void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor) {
+void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
     for (size_t j = 1; j < token.size(); ++j) {
         std::string short_name{'-', token[j]};
         auto *arg = find_argument(short_name);
@@ -832,18 +846,18 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor) {
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
             if (!attached.empty())
-                arg->parse(attached);
+                arg->parse(attached, discard);
             else if (cursor.next_is_value())
-                arg->parse(cursor.next());
+                arg->parse(cursor.next(), discard);
             else
                 throw clap::MissingValue(short_name);
             return;
         }
-        arg->parse("");
+        arg->parse("", discard);
     }
 }
 
-void clap::App::parse_single(std::string_view token, ArgCursor& cursor) {
+void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
     auto *arg = find_argument(token);
     if (!arg)
         throw clap::UnknownArgument(std::string(token));
@@ -851,9 +865,9 @@ void clap::App::parse_single(std::string_view token, ArgCursor& cursor) {
     if (arg->takes_value()) {
         if (!cursor.next_is_value())
             throw clap::MissingValue(std::string(token));
-        arg->parse(cursor.next());
+        arg->parse(cursor.next(), discard);
     } else {
-        arg->parse("");
+        arg->parse("", discard);
     }
 }
 

@@ -16,7 +16,7 @@ namespace clap {
             virtual ~Argument() = default;
 
             /// Consume a raw token as this argument's value.
-            virtual void parse(std::string_view value) = 0;
+            virtual void parse(std::string_view value, bool discard = false) = 0;
             /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
