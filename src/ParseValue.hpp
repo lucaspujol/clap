@@ -9,13 +9,17 @@
 #include "ClapExceptions.hpp"
 
 namespace clap {
-    /// Converts a string into T with operator>>. Specialize for custom parsing.
+    /// Satisfied when T can be read from an std::istream with operator>>.
     template<typename T>
     concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
 
+    /// Satisfied when T can be written to an std::ostream with operator<<.
     template<typename T>
     concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
 
+    /// Turns a string into a T. The customization point for value parsing:
+    /// specialize this for a type that operator>> cannot handle. See
+    /// examples/custom_type.
     template<typename T>
     struct ParseValue;
 
@@ -31,6 +35,8 @@ namespace clap {
         }
     };
 
+    /// Parser for std::string: takes the token verbatim, no stream parsing
+    /// (so values may contain spaces and never fail to parse).
     template<>
     struct ParseValue<std::string> {
         static std::string parse(std::string_view str) {
@@ -38,7 +44,8 @@ namespace clap {
         }
     };
 
-    /// either ParseValue<T> is specialized, or T is stream-extractable. 
+    /// Satisfied when T has a usable ParseValue: either ParseValue<T> is
+    /// specialized, or T is stream-extractable via the default parser.
     template<typename T>
     concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
 
