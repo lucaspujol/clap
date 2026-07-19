@@ -1,6 +1,7 @@
 #pragma once
 
 #include <exception>
+#include <source_location>
 #include <string>
 
 namespace clap {
@@ -95,6 +96,25 @@ namespace clap {
         public:
             ConfigError(const std::string& msg)
                 : ClapException("Configuration error: " + msg) {}
+
+            /// Located, clang-style:
+            /// "file:line:col: error: <msg>".
+            /// loc points at the caller that registered the offending argument.
+            ConfigError(const std::source_location& loc, const std::string& msg)
+                : ClapException("\n" + prefix(loc) + "error: " + msg) {}
+
+            /// Redeclaration: as above, plus a "previous definition" line at prev.
+            ConfigError(const std::source_location& loc, const std::string& msg,
+                        const std::source_location& prev)
+                : ClapException("\n" + prefix(loc) + "error: " + msg + "\n" +
+                                prefix(prev) + "previous definition") {}
+
+        private:
+            static std::string prefix(const std::source_location& loc) {
+                return std::string(loc.file_name()) + ":" +
+                       std::to_string(loc.line()) + ":" +
+                       std::to_string(loc.column()) + ": ";
+            }
     };
 
     /// A raw value failed to parse. Internal signal from a ParseValue

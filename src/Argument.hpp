@@ -2,6 +2,7 @@
 
 #include <string>
 #include <sstream>
+#include <source_location>
 #include <vector>
 
 namespace clap {
@@ -45,6 +46,11 @@ namespace clap {
                 return best;
             }
 
+            /// Where this argument was registered, for diagnostics. Set by App
+            /// right after construction, so it points at the caller's site.
+            void set_location(const std::source_location& loc) noexcept { _loc = loc; }
+            const std::source_location& location() const noexcept { return _loc; }
+
             /// True if token matches one of this argument's names.
             bool matches(std::string_view name) const {
                 for (const auto& arg_name : _names) {
@@ -62,6 +68,7 @@ namespace clap {
             std::vector<std::string> _names;
             std::string _description;
             bool _required = false;
+            std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {
                 std::vector<std::string> tokens;

@@ -9,6 +9,7 @@
 #include <string>
 #include <vector>
 #include <memory>
+#include <source_location>
 
 namespace clap {
     class ArgCursor;
@@ -26,7 +27,8 @@ namespace clap {
 
             /// Register a value option, e.g. option<int>("-c,--count", "...").
             template<typename T>
-            Option<T>& option(std::string names, std::string description) {
+            Option<T>& option(std::string names, std::string description,
+                              std::source_location loc = std::source_location::current()) {
                 static_assert(OptionValue<T>,
                     "clap: this option's value type is not usable. clap needs to "
                     "parse it from a string (give it operator>> or specialize "
@@ -34,14 +36,17 @@ namespace clap {
                     "operator<<). Also specialize clap::TypeName<T> for its help "
                     "label -- see examples/custom_type.");
                 auto option = std::make_unique<Option<T>>(std::move(names), std::move(description));
+                option->set_location(loc);
                 auto &ref = *option;
                 add_argument(std::move(option));
                 return ref;
             }
 
             /// Register a boolean flag, e.g. flag("-v,--verbose", "...").
-            Flag& flag(std::string names, std::string description) {
+            Flag& flag(std::string names, std::string description,
+                       std::source_location loc = std::source_location::current()) {
                 auto flag = std::make_unique<Flag>(std::move(names), std::move(description));
+                flag->set_location(loc);
                 auto &ref = *flag;
                 add_argument(std::move(flag));
                 return ref;
@@ -49,12 +54,14 @@ namespace clap {
 
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
-            MultiOption<T>& multi_option(std::string names, std::string description) {
+            MultiOption<T>& multi_option(std::string names, std::string description,
+                                         std::source_location loc = std::source_location::current()) {
                 static_assert(Parseable<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
                 auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
+                opt->set_location(loc);
                 auto& ref = *opt;
                 add_argument(std::move(opt));
                 return ref;
@@ -62,7 +69,8 @@ namespace clap {
 
             /// Register a positional argument, e.g. positional<std::string>("input", "...").
             template<typename T>
-            Positional<T>& positional(std::string name, std::string description) {
+            Positional<T>& positional(std::string name, std::string description,
+                                      std::source_location loc = std::source_location::current()) {
                 static_assert(OptionValue<T>,
                     "clap: this positional's value type is not usable. clap needs to "
                     "parse it from a string (give it operator>> or specialize "
@@ -70,6 +78,7 @@ namespace clap {
                     "operator<<). Also specialize clap::TypeName<T> for its help "
                     "label -- see examples/custom_type.");
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
+                pos->set_location(loc);
                 auto &ref = *pos;
                 _positionals.push_back(std::move(pos));
                 return ref;
