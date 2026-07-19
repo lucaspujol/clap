@@ -121,6 +121,11 @@ Each example builds into its own folder under `examples/`.
   `-c10`. Negatives work in the attached form (`-c-5`, `--count=-5`); a spaced
   `-c -5` is rejected because `-5` looks like a flag.
 - Long options with equals. Both `--count 10` and `--count=10` work.
+- End-of-options separator. A bare `--` turns off flag parsing: every token
+  after it is treated as positional, even ones starting with a dash.
+- Discard override. A `/` right after the dashes (`-/v`, `--/count=3`) parses
+  and validates the argument like normal but records nothing, so the argument
+  stays unset. The token still has to be a valid, known argument.
 - Custom value types. Teach clap your own type by specializing
   `clap::TypeName` and `clap::ParseValue`. See `examples/custom_type`.
 - Errors without exceptions. `parse` never throws on bad input: it returns
