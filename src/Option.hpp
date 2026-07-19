@@ -17,8 +17,9 @@ namespace clap {
             Option(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
-            void parse(std::string_view value) override {
-                _value = clap::parse_checked<T>(value, names(), type_name());
+            void parse(std::string_view value, bool discard) override {
+                auto v = clap::parse_checked<T>(value, names(), type_name());
+                if (!discard) _value = std::move(v);
             }
 
             std::string_view type_name() const override {

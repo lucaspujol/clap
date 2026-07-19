@@ -18,7 +18,7 @@ namespace clap {
             Positional(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
-            void parse(std::string_view value) override {
+            void parse(std::string_view value, bool) override {
                 _value = clap::parse_checked<T>(value, names(), type_name());
             }
 
@@ -31,7 +31,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
-            /// Set a fallback value, making the positional optional.
+            /// Set a fallback value, making the positional optional. 
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;

@@ -15,8 +15,10 @@ namespace clap {
         MultiOption(std::string names, std::string description)
         : Argument(std::move(names), std::move(description)) {}
 
-        void parse(std::string_view value) override {
-            _values.push_back(clap::parse_checked<T>(value, names(), type_name()));
+        void parse(std::string_view value, bool discard) override {
+            auto v = clap::parse_checked<T>(value, names(), type_name());
+            if (!discard) _values.push_back(std::move(v));
+
         }
 
         std::string_view type_name() const override {

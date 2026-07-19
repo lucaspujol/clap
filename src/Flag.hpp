@@ -13,7 +13,9 @@ namespace clap {
 
             operator bool() const noexcept { return _value; }
 
-            void parse(std::string_view) override { _value = true; }
+            void parse(std::string_view, bool discard) override {
+                if (!discard) _value = true;
+            }
             std::string_view type_name() const override { return ""; }
 
             bool is_set() const noexcept override { return _value; }
