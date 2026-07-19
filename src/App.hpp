@@ -87,6 +87,12 @@ namespace clap {
             /// Parse argv. Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
             /// every value it can regardless. Registration still throws ConfigError.
+            ///
+            /// Two special forms are recognised:
+            /// - "--" on its own: every token after it is treated as positional,
+            ///   even ones that look like flags.
+            /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
+            ///   validates the argument but discards its value, leaving it unset.
             bool parse(int argc, char **argv);
             /// Full help message.
             std::string help() const;
