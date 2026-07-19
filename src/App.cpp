@@ -76,7 +76,7 @@ std::string clap::App::usage() const {
 }
 
 void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
-    if (!starts_with(token, "-")) {
+    if (_positional_mode || !starts_with(token, "-")) {
         handle_positional(token);
         return;
     }
@@ -102,7 +102,12 @@ bool clap::App::parse(int argc, char **argv) {
 
     while (cursor.has_next()) {
         try {
-            dispatch(cursor.next(), cursor);
+            std::string_view token = cursor.next();
+            if (token == "--" && !_positional_mode) {
+                _positional_mode = true;
+                continue;
+            }
+            dispatch(token, cursor);
         } catch (const clap::ParseException& e) {
             if (!failure)
                 failure = e;

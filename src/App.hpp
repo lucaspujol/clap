@@ -106,6 +106,7 @@ namespace clap {
             size_t _positional_idx = 0;
             std::string _error;
             ErrorKind _error_kind{};
+            bool _positional_mode = false;
 
             void add_argument(std::unique_ptr<Argument> arg);
             Argument* find_argument(std::string_view name);
