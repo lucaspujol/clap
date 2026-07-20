@@ -8,8 +8,10 @@
 
 #include <iostream>
 
+// your custom type, here an enum
 enum class Mode { Fast, Safe, Debug };
 
+// how to print it, so the default value can appear in help output
 std::ostream& operator<<(std::ostream& os, Mode m) {
     switch (m) {
         case Mode::Fast:  return os << "fast";
@@ -19,6 +21,7 @@ std::ostream& operator<<(std::ostream& os, Mode m) {
     return os << "?";
 }
 
+// how to parse it, so clap can turn a string into a Mode
 namespace clap {
     template<> struct TypeName<Mode> {
         static constexpr std::string_view value = "mode";
@@ -45,6 +48,7 @@ int main(int argc, char** argv) {
     if (help) { std::cout << app.help(); return 0; }
     if (!ok)  { std::cerr << app.error(); return 1; }
 
-    std::cout << "mode = " << mode.get() << "\n";
+    Mode m = mode.get();
+    std::cout << "Running in mode: " << m << "\n";
     return 0;
 }
