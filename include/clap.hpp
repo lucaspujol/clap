@@ -122,10 +122,11 @@ namespace clap {
     class InvalidValue : public ParseException {
         public:
             InvalidValue(const std::string& value, const std::string& arg,
-                         const std::string& type)
+                         const std::string& type, const std::string& hint = "")
                 : ParseException(ErrorKind::InvalidValue,
                                  "invalid value '" + value + "' for '" + arg + "'"
-                                 + (type.empty() ? "" : " (expected " + type + ")")) {}
+                                 + (type.empty() ? "" : " (expected " + type + ")")
+                                 + (hint.empty() ? "" : "\n\t" + hint)) {}
     };
 
     /// The parser was set up wrong. Thrown while registering, not while parsing,
@@ -160,7 +161,12 @@ namespace clap {
     class ParseError : public ClapException {
         public:
             ParseError(const std::string& msg)
-                : ClapException("Parse error: " + msg) {}
+                : ClapException("Parse error: " + msg), _detail(msg) {}
+
+            const std::string& detail() const noexcept { return _detail; }
+
+        private:
+            std::string _detail;
     };
 }
 
@@ -312,7 +318,7 @@ namespace clap {
             std::istringstream iss{std::string(str)};
             T val;
             if (!(iss >> val) || !iss.eof())
-                throw clap::ParseError("Failed to parse value");
+                throw clap::ParseError("");
             return val;
         }
     };
@@ -323,6 +329,17 @@ namespace clap {
     struct ParseValue<std::string> {
         static std::string parse(std::string_view str) {
             return std::string(str);
+        }
+    };
+
+    template<>
+    struct ParseValue<bool> {
+        static bool parse(std::string_view str) {
+            if (str == "1" || str == "true" || str == "yes" || str == "on")
+                return true;
+            if (str == "0" || str == "false" || str == "no" || str == "off")
+                return false;
+            throw ParseError("valid values: 1, true, yes, on, 0, false, no, off");
         }
     };
 
@@ -341,8 +358,8 @@ namespace clap {
     T parse_checked(std::string_view value, std::string_view name, std::string_view type) {
         try {
             return ParseValue<T>::parse(value);
-        } catch (const clap::ParseError&) {
-            throw clap::InvalidValue(std::string(value), std::string(name), std::string(type));
+        } catch (const clap::ParseError &e) {
+            throw clap::InvalidValue(std::string(value), std::string(name), std::string(type), e.detail());
         }
     }
 }
