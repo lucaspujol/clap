@@ -84,10 +84,11 @@ namespace clap {
     class InvalidValue : public ParseException {
         public:
             InvalidValue(const std::string& value, const std::string& arg,
-                         const std::string& type)
+                         const std::string& type, const std::string& hint = "")
                 : ParseException(ErrorKind::InvalidValue,
                                  "invalid value '" + value + "' for '" + arg + "'"
-                                 + (type.empty() ? "" : " (expected " + type + ")")) {}
+                                 + (type.empty() ? "" : " (expected " + type + ")")
+                                 + (hint.empty() ? "" : "\n\t" + hint)) {}
     };
 
     /// The parser was set up wrong. Thrown while registering, not while parsing,
@@ -122,6 +123,11 @@ namespace clap {
     class ParseError : public ClapException {
         public:
             ParseError(const std::string& msg)
-                : ClapException("Parse error: " + msg) {}
+                : ClapException("Parse error: " + msg), _detail(msg) {}
+
+            const std::string& detail() const noexcept { return _detail; }
+
+        private:
+            std::string _detail;
     };
 }
