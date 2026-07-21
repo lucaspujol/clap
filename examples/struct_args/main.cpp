@@ -3,6 +3,26 @@
 // the way you showed in the video. no api changes, just 
 // different way to abstract argument parsing
 //
+// in JAI, you would do something like this:
+// 
+// Arguments :: struct {
+//     debug: bool;
+//     port: int;
+//     size: int;
+//     elevation: int;
+//     teams: []string;
+//     input: string;
+//     output: string;
+// }
+// 
+// the names of the flags are inferred from the struct field names.
+// doable in C++26 with static reflection (P2996), not available to us here.
+// so the idea of this example: write the names by hand, keep the struct shape.
+// see the Args struct below. ofc, app is defined BEFORE the fields.
+// 
+// in addition, to avoid verbosity in code, i added a config struct to snapshot
+// to plain values. this is optional, this just transforms args.port.get() into cfg.port
+//
 //   ./struct_args -p6767 -s10 -n TeamA -n TeamB -d arena.conf
 #include <string>
 #define CLAP_IMPLEMENTATION
