@@ -260,7 +260,11 @@ TEST_F(Values, UnsignedNegativeRejected) {
 }
 
 TEST_F(Values, LocaleIndependantParsing) {
-    std::locale::global(std::locale("fr_FR.UTF-8"));
+    try {
+        std::locale::global(std::locale("fr_FR.UTF-8"));
+    } catch (const std::runtime_error&) {
+        GTEST_SKIP() << "fr_FR.UTF-8 locale not installed";
+    }
     clap::App app{"prog", "d"};
     app.option<float>("-f", "float");
     Argv a{"prog", "-f", "1,5"};
