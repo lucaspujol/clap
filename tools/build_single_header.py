@@ -22,7 +22,7 @@ HEADER_ORDER = [
     "ParseValue.hpp",
     "Flag.hpp",
     "Option.hpp",
-    "MultiOption.hpp",
+    "ValueList.hpp",
     "Positional.hpp",
     "HelpFormatter.hpp",
     "App.hpp",
