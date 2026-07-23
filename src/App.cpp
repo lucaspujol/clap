@@ -7,6 +7,9 @@
 #include <string>
 #include <string_view>
 
+// DEBUG
+#include <iostream>
+
 namespace {
     bool is_long_body(std::string_view body) {
         if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
@@ -17,9 +20,8 @@ namespace {
         return true;
     }
 
-    // accepts exactly three formats:
+    // accepts exactly two formats:
     // -f (single dash, single char)
-    // -flag (single dash, long)
     // --flag (double dash, long)
     // Anything else -- --f, spaces, --- is out.
     bool valid_option_name(std::string_view name) {
@@ -32,7 +34,8 @@ namespace {
         auto body = name.substr(1);        // single dash
         if (body.size() == 1)              // short: any char but space or dash
             return body[0] != '-' && !std::isspace(static_cast<unsigned char>(body[0]));
-        return is_long_body(body);         // single-dash long
+        std::cout << "should be single-dash long: " << name << std::endl;
+        return false;
     }
 }
 
@@ -47,7 +50,7 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     for (const auto& n : arg->raw_names()) {
         if (!valid_option_name(n))
             throw clap::ConfigError(arg->location(),
-                "invalid option name '" + n + "' (expected -f, -flag or --flag)");
+                "invalid option name '" + n + "' (expected -f or --flag)");
         for (const auto& existing : _arguments)
             if (existing->matches(n))
                 throw clap::ConfigError(arg->location(),
