@@ -241,6 +241,11 @@ TEST(Registration, NameWithoutDashRejected) {
     EXPECT_THROW(app.flag("count", "c"), clap::ConfigError);
 }
 
+TEST(Registration, SingleDashLongNameThrows) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("-count", "c"), clap::ConfigError);
+}
+
 // --- step 7: duplicate-name guard -----------------------------------------
 
 TEST(Registration, DuplicateShortNameRejected) {
