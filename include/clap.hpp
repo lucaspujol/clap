@@ -185,7 +185,7 @@ namespace clap {
     template<> struct TypeName<double>                { static constexpr std::string_view value = "double"; };
     template<> struct TypeName<bool>                  { static constexpr std::string_view value = "bool"; };
     template<> struct TypeName<std::string>           { static constexpr std::string_view value = "string"; };
-    // template<> struct TypeName<std::filesystem::path> { static constexpr std::string_view value = "path"; };
+    template<> struct TypeName<std::filesystem::path> { static constexpr std::string_view value = "path"; };
 }
 
 // ===== Argument.hpp =====
