@@ -25,6 +25,9 @@ jobs:
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
 
+      - name: Generate fr_FR locale
+        run: sudo locale-gen fr_FR.UTF-8 && sudo update-locale
+
       - name: Configure
         run: cmake -S . -B build
 
