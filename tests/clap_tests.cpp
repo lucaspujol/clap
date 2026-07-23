@@ -398,6 +398,28 @@ TEST_F(Errors, MissingRequiredReported) {
     expect_error(app, a, clap::ErrorKind::MissingRequiredValue);
 }
 
+// --- custom app: positional with empty name -------------------------------------
+
+TEST_F(Errors, PositionalWithEmptyNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.positional<int>("", "pos"), clap::ConfigError);
+}
+
+// --- custom app: twice the same positional (duplicate check) --------------------
+
+TEST_F(Errors, DuplicatePositionalRejected) {
+    clap::App app{"prog", "d"};
+    app.positional<int>("pos", "pos1");
+    EXPECT_THROW(app.positional<int>("pos", "pos2"), clap::ConfigError);
+}
+
+// --- custom app: positional name with a comma (splits into two) -----------------
+
+TEST_F(Errors, PositionalWithCommaNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.positional<int>("a,b", "pos"), clap::ConfigError);
+}
+
 // =============================================================================
 // Usage string
 // =============================================================================
