@@ -60,12 +60,17 @@ void clap::App::add_positional(std::unique_ptr<Argument> pos) {
     if (names.size() != 1)
         throw clap::ConfigError(pos->location(),
             "positional registered with an empty name or a comma (a positional has exactly one name)"
-);
+    );
     const auto& name = names.front();
-    for (const auto& existing : _positionals)
+    for (const auto& existing : _positionals) {
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
                 "redeclaration of positional " + name, existing->location());
+        if (pos->is_required() && !existing->is_required())
+            throw clap::ConfigError(pos->location(),
+                "required positional '" + name + "' declared after optional positional '"
+                + existing->raw_names().front() + "'", existing->location());
+    }
     _positionals.push_back(std::move(pos));
 }
 
