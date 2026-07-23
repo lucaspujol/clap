@@ -705,7 +705,6 @@ namespace clap {
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
-#include <iostream>
 
 // ===== HelpFormatter.cpp =====
 std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
@@ -794,8 +793,6 @@ std::string clap::HelpFormatter::help() const {
 }
 
 // ===== App.cpp =====
-// DEBUG
-
 namespace {
     bool is_long_body(std::string_view body) {
         if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
