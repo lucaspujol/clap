@@ -56,3 +56,6 @@ examples/**
 !examples/**/*.hpp
 !examples/**/CMakeLists.txt
 examples/**/build/
+
+# temp dir
+temp/
