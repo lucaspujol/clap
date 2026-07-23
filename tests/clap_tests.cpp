@@ -413,6 +413,12 @@ TEST_F(Errors, DuplicatePositionalRejected) {
     EXPECT_THROW(app.positional<int>("pos", "pos2"), clap::ConfigError);
 }
 
+TEST_F(Errors, OptionalPositionalBeforeRequiredPos) {
+    clap::App app{"prog", "d"};
+    app.positional<int>("opt", "optional positional arg").default_value(67);
+    EXPECT_THROW(app.positional<int>("req", "required positional arg");, clap::ConfigError);
+}
+
 // --- custom app: positional name with a comma (splits into two) -----------------
 
 TEST_F(Errors, PositionalWithCommaNameRejected) {
