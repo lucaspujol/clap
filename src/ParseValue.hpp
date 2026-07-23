@@ -1,6 +1,7 @@
 #pragma once
 
 #include <charconv>
+#include <filesystem>
 #include <string>
 #include <string_view>
 #include <sstream>
@@ -55,9 +56,12 @@ namespace clap {
     /// (so values may contain spaces and never fail to parse).
     template<>
     struct ParseValue<std::string> {
-        static std::string parse(std::string_view str) {
-            return std::string(str);
-        }
+        static std::string parse(std::string_view str) { return std::string(str); }
+    };
+
+    template<>
+    struct ParseValue<std::filesystem::path> {
+        static std::filesystem::path parse(std::string_view str) { return std::filesystem::path(str); }
     };
 
     template<>
