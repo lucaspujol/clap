@@ -7,9 +7,6 @@
 #include <string>
 #include <string_view>
 
-// DEBUG
-#include <iostream>
-
 namespace {
     bool is_long_body(std::string_view body) {
         if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
