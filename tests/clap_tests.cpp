@@ -25,6 +25,7 @@
 // and `--gtest_filter=Positionals.*` both group by feature.
 // =============================================================================
 
+#include <filesystem>
 #include <gtest/gtest.h>
 
 // Test the shipped single header, defining the implementation in this TU.
@@ -269,6 +270,20 @@ TEST_F(Values, LocaleIndependantParsing) {
     app.option<float>("-f", "float");
     Argv a{"prog", "-f", "1,5"};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Values, FilePathOptionAcceptsSpaces) {
+    clap::App app{"prog", "d"};
+    auto& path = app.option<std::filesystem::path>("-p", "path");
+    Argv a{"prog", "-p", "a b c"};
+    expect_ok(app, a);
+    EXPECT_EQ(path.get(), std::filesystem::path("a b c"));
+}
+
+TEST_F(Values, HelpDisplayOfFilepathShowsPath) {
+    clap::App app{"prog", "d"};
+    app.option<std::filesystem::path>("-p", "path");
+    EXPECT_NE(app.help().find("<path>"), std::string::npos);
 }
 
 // =============================================================================
