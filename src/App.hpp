@@ -3,7 +3,7 @@
 #include "Option.hpp"
 #include "Flag.hpp"
 #include "Positional.hpp"
-#include "MultiOption.hpp"
+#include "ValueList.hpp"
 #include "ClapExceptions.hpp"
 
 #include <string>
@@ -54,16 +54,32 @@ namespace clap {
 
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
-            MultiOption<T>& multi_option(std::string names, std::string description,
-                                         std::source_location loc = std::source_location::current()) {
+            ValueList<T>& multi_option(std::string names, std::string description,
+                                       std::source_location loc = std::source_location::current()) {
                 static_assert(Parseable<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
-                auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
+                auto opt = std::make_unique<ValueList<T>>(std::move(names), std::move(description));
                 opt->set_location(loc);
                 auto& ref = *opt;
                 add_argument(std::move(opt));
+                return ref;
+            }
+
+            /// Register a variadic positional, e.g. variadic<std::string>("files", "...").
+            /// Must be the last positional; greedily collects every remaining token.
+            template<typename T>
+            ValueList<T>& variadic(std::string name, std::string description,
+                                   std::source_location loc = std::source_location::current()) {
+                static_assert(Parseable<T>,
+                    "clap: this positional's value type cannot be parsed from a string. "
+                    "Give it operator>> or specialize clap::ParseValue<T> (and "
+                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                auto pos = std::make_unique<ValueList<T>>(std::move(name), std::move(description));
+                pos->set_location(loc);
+                auto& ref = *pos;
+                add_positional(std::move(pos));
                 return ref;
             }
 
