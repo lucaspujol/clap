@@ -1,10 +1,13 @@
 #pragma once
 
+#include <charconv>
 #include <string>
 #include <string_view>
 #include <sstream>
 #include <istream>
 #include <ostream>
+#include <system_error>
+#include <type_traits>
 
 #include "ClapExceptions.hpp"
 
@@ -27,11 +30,24 @@ namespace clap {
     template<StreamExtractable T>
     struct ParseValue<T> {
         static T parse(std::string_view str) {
-            std::istringstream iss{std::string(str)};
             T val;
-            if (!(iss >> val) || !iss.eof())
-                throw clap::ParseError("");
-            return val;
+            if constexpr (std::is_arithmetic_v<T> && !std::is_same_v<T, bool>) {
+                auto* first = str.data();
+                auto* last = str.data() + str.size();
+                auto [ptr, ec] = std::from_chars(first, last, val);
+                if (ec == std::errc::invalid_argument)
+                    throw clap::ParseError("");
+                if (ec == std::errc::result_out_of_range)
+                    throw clap::ParseError("out of range");
+                if (ptr != last)
+                    throw clap::ParseError("");
+                return val;
+            } else {
+                std::istringstream iss{std::string(str)};
+                if (!(iss >> val) || !iss.eof())
+                    throw clap::ParseError("");
+                return val;
+            }
         }
     };
 
