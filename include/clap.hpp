@@ -817,7 +817,6 @@ namespace {
         auto body = name.substr(1);        // single dash
         if (body.size() == 1)              // short: any char but space or dash
             return body[0] != '-' && !std::isspace(static_cast<unsigned char>(body[0]));
-        std::cout << "should be single-dash long: " << name << std::endl;
         return false;
     }
 }
