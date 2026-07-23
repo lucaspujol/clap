@@ -673,7 +673,7 @@ namespace clap {
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
                 pos->set_location(loc);
                 auto &ref = *pos;
-                _positionals.push_back(std::move(pos));
+                add_positional(std::move(pos));
                 return ref;
             }
 
@@ -708,6 +708,7 @@ namespace clap {
             bool _positional_mode = false;
 
             void add_argument(std::unique_ptr<Argument> arg);
+            void add_positional(std::unique_ptr<Argument> pos);
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
@@ -860,6 +861,20 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
                     "redeclaration of flag " + n, existing->location());
     }
     _arguments.push_back(std::move(arg));
+}
+
+void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+    const auto& names = pos->raw_names();
+    if (names.size() != 1)
+        throw clap::ConfigError(pos->location(),
+            "positional registered with an empty name or a comma (a positional has exactly one name)"
+);
+    const auto& name = names.front();
+    for (const auto& existing : _positionals)
+        if (existing->matches(name))
+            throw clap::ConfigError(pos->location(),
+                "redeclaration of positional " + name, existing->location());
+    _positionals.push_back(std::move(pos));
 }
 
 clap::Argument* clap::App::find_argument(std::string_view token) {

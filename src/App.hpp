@@ -80,7 +80,7 @@ namespace clap {
                 auto pos = std::make_unique<Positional<T>>(std::move(name), std::move(description));
                 pos->set_location(loc);
                 auto &ref = *pos;
-                _positionals.push_back(std::move(pos));
+                add_positional(std::move(pos));
                 return ref;
             }
 
@@ -115,6 +115,7 @@ namespace clap {
             bool _positional_mode = false;
 
             void add_argument(std::unique_ptr<Argument> arg);
+            void add_positional(std::unique_ptr<Argument> pos);
             Argument* find_argument(std::string_view name);
             static bool starts_with(std::string_view str, std::string_view prefix);
 
