@@ -55,6 +55,20 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
+void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+    const auto& names = pos->raw_names();
+    if (names.size() != 1)
+        throw clap::ConfigError(pos->location(),
+            "positional registered with an empty name or a comma (a positional has exactly one name)"
+);
+    const auto& name = names.front();
+    for (const auto& existing : _positionals)
+        if (existing->matches(name))
+            throw clap::ConfigError(pos->location(),
+                "redeclaration of positional " + name, existing->location());
+    _positionals.push_back(std::move(pos));
+}
+
 clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
