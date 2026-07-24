@@ -180,6 +180,19 @@ TEST_F(LongOptions, GetReturnsDefaultWhenAbsent) {
     EXPECT_EQ(count.get(), 10);
 }
 
+TEST_F(LongOptions, UnknownLongEqualsRejected) {
+    Argv a{"prog", "--nope=5"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+}
+
+TEST_F(LongOptions, DiscardSlashValidatesButLeavesUnset) {
+    // --/count=5: the leading '/' after the dashes validates the option but
+    // discards its value, so count stays unset.
+    Argv a{"prog", "--/count=5"};
+    expect_ok(app, a);
+    EXPECT_THROW(count.get(), clap::MissingValue);
+}
+
 // =============================================================================
 // Short options:  -c 10 | -c10 | -c-5
 // =============================================================================
@@ -213,6 +226,18 @@ TEST_F(Clusters, TrailingOptionTakesValue) {
     expect_ok(app, a);
     EXPECT_TRUE(verbose);
     EXPECT_EQ(count.get(), 10);
+}
+
+TEST_F(Clusters, UnknownShortInClusterRejected) {
+    // -vq: v is a flag, q matches nothing.
+    Argv a{"prog", "-vq"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+}
+
+TEST_F(Clusters, TrailingValueOptionWithNoValueErrors) {
+    // -vc: c takes a value but the cluster ends and nothing follows.
+    Argv a{"prog", "-vc"};
+    expect_error(app, a, clap::ErrorKind::MissingValue);
 }
 
 // =============================================================================
@@ -717,6 +742,18 @@ TEST_F(Usage, RequiredPositionalNotBracketed) {
     EXPECT_EQ(app.usage(), "Usage: prog <scene>");
 }
 
+TEST_F(Usage, HelpAnnotatesRequired) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").required();
+    EXPECT_NE(app.help().find("(required)"), std::string::npos);
+}
+
+TEST_F(Usage, HelpAnnotatesDefault) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").default_value(10);
+    EXPECT_NE(app.help().find("(default: 10)"), std::string::npos);
+}
+
 // =============================================================================
 // Registration:  configuration-time errors (thrown, not parse errors)
 // =============================================================================
@@ -735,6 +772,21 @@ TEST_F(Registration, DuplicateShortNameRejected) {
     clap::App app{"prog", "d"};
     app.flag("-v,--verbose", "v");
     EXPECT_THROW(app.flag("-v,--victory", "v2"), clap::ConfigError);
+}
+
+TEST_F(Registration, LongNameBadFirstCharRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("--@bad", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, LongNameBadInnerCharRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("--ab@c", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, EmptyNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag(",", "x"), clap::ConfigError);
 }
 
 // =============================================================================
