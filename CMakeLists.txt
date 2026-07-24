@@ -31,12 +31,18 @@ endforeach()
 
 # --- Tests ----------------------------------------------------------------
 option(CLAP_BUILD_TESTS "Build tests" ON)
+option(CLAP_COVERAGE "Build tests with coverage instrumentation" OFF)
 
 if(CLAP_BUILD_TESTS)
     find_package(GTest REQUIRED)
     add_executable(clap_tests tests/clap_tests.cpp)
     target_link_libraries(clap_tests PRIVATE clap GTest::gtest GTest::gtest_main)
     target_compile_options(clap_tests PRIVATE -Wall -Wextra)
+
+    if(CLAP_COVERAGE)
+        target_compile_options(clap_tests PRIVATE --coverage -O0 -g)
+        target_link_options(clap_tests PRIVATE --coverage)
+    endif()
 
     enable_testing()
     add_test(NAME clap_tests COMMAND clap_tests)
