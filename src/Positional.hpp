@@ -4,26 +4,22 @@
 #include <optional>
 #include <sstream>
 
-#include "Argument.hpp"
-#include "TypeNames.hpp"
 #include "ClapExceptions.hpp"
-#include "ParseValue.hpp"
+#include "TypedArgument.hpp"
 
 namespace clap {
     /// An order-based argument with no dash, e.g. an input file.
     /// Required unless given a default_value().
+    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// methods like required() and default_value().
     template<typename T>
-    class Positional : public Argument {
+    class Positional : public TypedArgument<T, Positional<T>> {
         public:
             Positional(std::string names, std::string description)
-            : Argument(std::move(names), std::move(description)) {}
+            : TypedArgument<T, Positional<T>>(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value, bool) override {
-                _value = clap::parse_checked<T>(value, names(), type_name());
-            }
-
-            std::string_view type_name() const override {
-                return clap::TypeName<T>::value;
+                _value = this->parse_value(value);
             }
 
             bool is_set() const noexcept override { return _value.has_value(); }
@@ -45,12 +41,12 @@ namespace clap {
             }
 
             /// The parsed value, else the default. Throws MissingValue if neither.
-            const T &get() const {
+            const T&  get() const {
                 if (_value.has_value())
                     return _value.value();
                 if (_default_value.has_value())
                     return _default_value.value();
-                throw clap::MissingValue(std::string(names()));
+                throw clap::MissingValue(std::string(this->names()));
             }
 
         private:
