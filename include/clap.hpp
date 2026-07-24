@@ -30,6 +30,7 @@
 
 #define CLAP_VERSION "dev"
 
+#include <algorithm>
 #include <charconv>
 #include <exception>
 #include <filesystem>
@@ -43,6 +44,7 @@
 #include <string_view>
 #include <system_error>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 // ===== ClapExceptions.hpp =====
@@ -385,6 +387,84 @@ namespace clap {
     }
 }
 
+// ===== TypedArgument.hpp =====
+namespace clap {
+
+    template<typename T, typename Derived>
+    class TypedArgument : public Argument {
+        public:
+            TypedArgument(std::string names, std::string description)
+            : Argument(std::move(names), std::move(description)) {}
+            
+            /// help label checks the choices first: <xml|json|yaml>, not <string>
+            std::string_view type_name() const override {
+                if (!_choices_label.empty()) return _choices_label;
+                if (!_range_label.empty())   return _range_label;
+                return clap::TypeName<T>::value;
+            }
+
+            /// Restrict accepted values to an explicit set. needs == and <<
+            Derived& choices(std::vector<T> allowed) {
+                std::ostringstream oss;
+                for (size_t i = 0; i < allowed.size(); ++i) {
+                    if (i) oss << '|';
+                    oss << allowed[i];
+                }
+                _choices_label = oss.str();
+                _choices = std::move(allowed);
+                return self();
+            } 
+
+            /// Restrict accepted values to [lo, hi] range. needs < and <<
+            Derived& range(T lo, T hi) {
+                _range_label = std::string(clap::TypeName<T>::value) + " " + label(lo) + ".." + label(hi);
+                _range.emplace(std::move(lo), std::move(hi));
+                return self();
+            }
+
+        protected:
+            /// parses a T value, validates the range & choices requirements
+            T parse_value(std::string_view value) {
+                T v = clap::parse_checked<T>(value, names(), type_name());
+                validate(v, value);
+                return v;
+            }
+            
+        private:
+            Derived& self() { return static_cast<Derived&>(*this); }
+
+            /// validates the requirements for .range() & .choices()
+            void validate(const T& v, std::string_view raw) {
+                if (!_choices.empty() && std::find(_choices.begin(), _choices.end(), v) == _choices.end()) {
+                    throw clap::InvalidValue(
+                        std::string(raw),
+                        std::string(names()),
+                        std::string(type_name())
+                    );
+                }
+                if (_range && (v < _range->first || _range->second < v)) {
+                    throw clap::InvalidValue(
+                        std::string(raw),
+                        std::string(names()),
+                        std::string(type_name())
+                    );
+                }
+            }
+
+            /// for formatting in InvalidValue hint
+            static std::string label(const T& v) {
+                std::ostringstream oss;
+                oss << v;
+                return oss.str();
+            }
+            
+            std::vector<T> _choices;
+            std::string _choices_label;
+            std::optional<std::pair<T, T>> _range;
+            std::string _range_label;
+    };
+}
+
 // ===== Flag.hpp =====
 namespace clap {
     /// A boolean switch like -v or --force. Convert to bool to read it.
@@ -411,27 +491,26 @@ namespace clap {
 // ===== Option.hpp =====
 namespace clap {
     /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
+    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// methods like required() and default_value().
     template<typename T>
-    class Option : public Argument {
+    class Option : public TypedArgument<T, Option<T>> {
         public:
             Option(std::string names, std::string description)
-            : Argument(std::move(names), std::move(description)) {}
+            : TypedArgument<T, Option<T>>(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value, bool discard) override {
-                auto v = clap::parse_checked<T>(value, names(), type_name());
+                auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
             }
-
-            std::string_view type_name() const override {
-                return clap::TypeName<T>::value;
-            }
+            
             bool is_set() const noexcept override { return _value.has_value(); }
 
             /// Mark as required. Parsing fails if absent. Excludes default_value().
             Option<T>& required() {
                 if (_default_value.has_value())
                     throw clap::ConfigError("cannot combine required() with default_value()");
-                set_required();
+                this->set_required();
                 return *this;
             }
 
@@ -447,7 +526,7 @@ namespace clap {
 
             /// Set a fallback used when the option is absent. Excludes required().
             Option<T>& default_value(T val) {
-                if (is_required())
+                if (this->is_required())
                     throw clap::ConfigError("cannot combine default_value() with required()");
                 _default_value = std::move(val);
                 return *this;
@@ -459,7 +538,7 @@ namespace clap {
                     return _value.value();
                 if (_default_value.has_value())
                     return _default_value.value();
-                throw clap::MissingValue(std::string(names()));
+                throw clap::MissingValue(std::string(this->names()));
             }
 
             /// The parsed value, else the default, else a fallback. Never throws.
@@ -482,19 +561,17 @@ namespace clap {
     /// Collects multiple parsed values of T into a list. Backs both a repeated
     /// named option (-t a -t b) and a variadic positional (prog a b c); the two
     /// differ only in how App routes tokens to them, not in how they store.
+    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// methods like required() and default_value().
     template<typename T>
-    class ValueList : public Argument {
+    class ValueList : public TypedArgument<T, ValueList<T>> {
     public:
         ValueList(std::string names, std::string description)
-        : Argument(std::move(names), std::move(description)) {}
+        : TypedArgument<T, ValueList<T>>(std::move(names), std::move(description)) {}
 
         void parse(std::string_view value, bool discard) override {
-            auto v = clap::parse_checked<T>(value, names(), type_name());
+            auto v = this->parse_value(value);
             if (!discard) _values.push_back(std::move(v));
-        }
-
-        std::string_view type_name() const override {
-            return clap::TypeName<T>::value;
         }
 
         bool is_set() const noexcept override { return !_values.empty(); }
@@ -503,15 +580,15 @@ namespace clap {
 
         /// Require at least one value. Parsing fails if none is given.
         ValueList<T>& required() {
-            set_required();
+            this->set_required();
             return *this;
         }
 
         /// All collected values. Empty when nothing was given and not required;
         /// throws MissingValue only if this list is required but stayed empty.
         const std::vector<T>& get() const {
-            if (_values.empty() && is_required())
-                throw clap::MissingValue(std::string(names()));
+            if (_values.empty() && this->is_required())
+                throw clap::MissingValue(std::string(this->names()));
             return _values;
         }
 
@@ -524,18 +601,16 @@ namespace clap {
 namespace clap {
     /// An order-based argument with no dash, e.g. an input file.
     /// Required unless given a default_value().
+    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// methods like required() and default_value().
     template<typename T>
-    class Positional : public Argument {
+    class Positional : public TypedArgument<T, Positional<T>> {
         public:
             Positional(std::string names, std::string description)
-            : Argument(std::move(names), std::move(description)) {}
+            : TypedArgument<T, Positional<T>>(std::move(names), std::move(description)) {}
 
             void parse(std::string_view value, bool) override {
-                _value = clap::parse_checked<T>(value, names(), type_name());
-            }
-
-            std::string_view type_name() const override {
-                return clap::TypeName<T>::value;
+                _value = this->parse_value(value);
             }
 
             bool is_set() const noexcept override { return _value.has_value(); }
@@ -557,12 +632,12 @@ namespace clap {
             }
 
             /// The parsed value, else the default. Throws MissingValue if neither.
-            const T &get() const {
+            const T&  get() const {
                 if (_value.has_value())
                     return _value.value();
                 if (_default_value.has_value())
                     return _default_value.value();
-                throw clap::MissingValue(std::string(names()));
+                throw clap::MissingValue(std::string(this->names()));
             }
 
         private:
@@ -742,7 +817,6 @@ namespace clap {
 
 #ifdef CLAP_IMPLEMENTATION
 
-#include <algorithm>
 #include <cctype>
 #include <iomanip>
 
