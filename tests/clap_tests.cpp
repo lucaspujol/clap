@@ -88,19 +88,36 @@ struct StandardApp : ::testing::Test {
 // Feature suites: same standard app, one GTest suite name per feature so output
 // and --gtest_filter group by behaviour. Add a `TEST_F(<suite>, ...)` under the
 // matching section to reuse the standard app.
-struct LongOptions : StandardApp {};
+struct Flags        : StandardApp {};
+struct LongOptions  : StandardApp {};
 struct ShortOptions : StandardApp {};
-struct Clusters : StandardApp {};
-struct Positionals : StandardApp {};
+struct Clusters     : StandardApp {};
+struct Positionals  : StandardApp {};
 struct MultiOptions : StandardApp {};
-struct Variadic : StandardApp {};
-struct Values : StandardApp {};
+struct Variadic     : StandardApp {};
+struct Values       : StandardApp {};
 struct RangeChoices : StandardApp {};
-struct HelpFlag : StandardApp {};
-struct Errors : StandardApp {};
-struct Usage : StandardApp {};
+struct HelpFlag     : StandardApp {};
+struct Errors       : StandardApp {};
+struct Usage        : StandardApp {};
 struct Registration : StandardApp {};
-struct ParseResult : StandardApp {};
+struct ParseResult  : StandardApp {};
+
+// =============================================================================
+// Flags:  -v | --verbose
+// =============================================================================
+
+TEST_F(Flags, Short) {
+    Argv a{"prog", "-v"};
+    expect_ok(app, a);
+    EXPECT_TRUE(verbose);
+}
+
+TEST_F(Flags, ShortIsSet) {
+    Argv a{"prog", "-v"};
+    expect_ok(app, a);
+    EXPECT_TRUE(verbose.is_set());
+}
 
 // =============================================================================
 // Long options:  --count 10 | --count=10
@@ -122,6 +139,58 @@ TEST_F(LongOptions, EqualsNegativeValue) {
     Argv a{"prog", "--count=-5"};
     expect_ok(app, a);
     EXPECT_EQ(count.get(), -5);
+}
+
+
+// --- custom app: argument both required and default_value -------------------
+
+TEST_F(LongOptions, RequiredAndDefaultValueRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(
+        app.option<int>("-c,--count", "count")
+            .required()
+            .default_value(10),
+        clap::ConfigError
+    );
+}
+
+TEST_F(LongOptions, RequiredAndDefaultValueRejectedInvertedOrder) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(
+        app.option<int>("-c,--count", "count")
+            .default_value(10)
+            .required(),
+        clap::ConfigError
+    );
+}
+
+// --- custom app: default value testing --------------------------------------
+
+TEST_F(LongOptions, DefaultStrCalled) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").default_value(10);
+    Argv a{"prog", "--count=10"};
+    EXPECT_EQ(count.default_str(), "10");
+}
+
+TEST_F(LongOptions, GetReturnsDefaultWhenAbsent) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").default_value(10);
+    Argv a{"prog"};
+    EXPECT_EQ(count.get(), 10);
+}
+
+TEST_F(LongOptions, UnknownLongEqualsRejected) {
+    Argv a{"prog", "--nope=5"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+}
+
+TEST_F(LongOptions, DiscardSlashValidatesButLeavesUnset) {
+    // --/count=5: the leading '/' after the dashes validates the option but
+    // discards its value, so count stays unset.
+    Argv a{"prog", "--/count=5"};
+    expect_ok(app, a);
+    EXPECT_THROW(count.get(), clap::MissingValue);
 }
 
 // =============================================================================
@@ -159,6 +228,18 @@ TEST_F(Clusters, TrailingOptionTakesValue) {
     EXPECT_EQ(count.get(), 10);
 }
 
+TEST_F(Clusters, UnknownShortInClusterRejected) {
+    // -vq: v is a flag, q matches nothing.
+    Argv a{"prog", "-vq"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+}
+
+TEST_F(Clusters, TrailingValueOptionWithNoValueErrors) {
+    // -vc: c takes a value but the cluster ends and nothing follows.
+    Argv a{"prog", "-vc"};
+    expect_error(app, a, clap::ErrorKind::MissingValue);
+}
+
 // =============================================================================
 // Positionals  (standard app: `input`, optional via default_value)
 // =============================================================================
@@ -174,6 +255,11 @@ TEST_F(Positionals, StringAcceptsSpaces) {
     expect_ok(app, a);
     EXPECT_EQ(input.get(), "a b c");
 }
+
+TEST_F(Positionals, TakesValueReturnsTrue) {
+    EXPECT_TRUE(input.takes_value());
+}
+
 
 // --- custom apps: default_value makes a positional optional -----------------
 
@@ -210,6 +296,14 @@ TEST_F(Positionals, RequiredPresentParses) {
     EXPECT_EQ(scene.get(), "scene.txt");
 }
 
+// --- custom apps: throws on empty value -------------------------------------
+
+TEST_F(Positionals, GetBeforeParseThrows) {
+    clap::App app{"prog", "d"};
+    auto& in = app.positional<std::string>("input", "in");
+    EXPECT_THROW(in.get(), clap::MissingValue);
+}
+
 // =============================================================================
 // Multi-options:  repeat the flag; never greedy
 // =============================================================================
@@ -237,6 +331,16 @@ TEST_F(MultiOptions, NotGreedy) {
     ASSERT_EQ(names.get().size(), 1u);
     EXPECT_EQ(names.get()[0], "a");
     EXPECT_EQ(input.get(), "b");
+}
+
+// --- Value list security check ----------------------------------------------
+
+TEST_F(Variadic, ValueListThrowsOnEmptyRequired) {
+    clap::App app{"prog", "d"};
+    auto &v = app.multi_option<int>("-n,--nums", "numbers")
+                  .required();
+    Argv a{"prog"};
+    EXPECT_THROW(v.get(), clap::MissingValue);
 }
 
 // =============================================================================
@@ -568,6 +672,11 @@ TEST_F(Errors, FirstErrorIsTheReportedOne) {
     EXPECT_NE(app.error().find("Unknown argument: --nope"), std::string::npos);
 }
 
+TEST_F(Errors, ValueOutOfRange) {
+    Argv a{"prog", "--count=7000000000000000"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
 // --- custom app: a required option that is absent ---------------------------
 
 TEST_F(Errors, MissingRequiredReported) {
@@ -633,6 +742,18 @@ TEST_F(Usage, RequiredPositionalNotBracketed) {
     EXPECT_EQ(app.usage(), "Usage: prog <scene>");
 }
 
+TEST_F(Usage, HelpAnnotatesRequired) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").required();
+    EXPECT_NE(app.help().find("(required)"), std::string::npos);
+}
+
+TEST_F(Usage, HelpAnnotatesDefault) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").default_value(10);
+    EXPECT_NE(app.help().find("(default: 10)"), std::string::npos);
+}
+
 // =============================================================================
 // Registration:  configuration-time errors (thrown, not parse errors)
 // =============================================================================
@@ -651,6 +772,21 @@ TEST_F(Registration, DuplicateShortNameRejected) {
     clap::App app{"prog", "d"};
     app.flag("-v,--verbose", "v");
     EXPECT_THROW(app.flag("-v,--victory", "v2"), clap::ConfigError);
+}
+
+TEST_F(Registration, LongNameBadFirstCharRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("--@bad", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, LongNameBadInnerCharRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("--ab@c", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, EmptyNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag(",", "x"), clap::ConfigError);
 }
 
 // =============================================================================
