@@ -20,6 +20,7 @@ HEADER_ORDER = [
     "Argument.hpp",
     "ArgCursor.hpp",
     "ParseValue.hpp",
+    "TypedArgument.hpp",
     "Flag.hpp",
     "Option.hpp",
     "ValueList.hpp",
