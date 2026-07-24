@@ -26,7 +26,7 @@ Grab the header from the [latest release](https://github.com/lucaspujol/clap/rel
 curl -LO https://github.com/lucaspujol/clap/releases/latest/download/clap.hpp
 ```
 
-Or track the bleeding edge from `main`:
+Or track the dev version from `main`:
 
 ```sh
 curl -O https://raw.githubusercontent.com/lucaspujol/clap/main/include/clap.hpp
@@ -45,6 +45,9 @@ In every other file, include it without the define:
 #include "clap.hpp"
 ```
 
+This `#define` approach is to mimic other single-header libs, like 
+STB and others. 
+
 ### Option 2: CMake FetchContent
 
 ```cmake
@@ -58,7 +61,8 @@ target_link_libraries(your_app PRIVATE clap)
 ```
 
 Linking `clap` puts the header on your include path. You still define
-`CLAP_IMPLEMENTATION` in one `.cpp` file.
+`CLAP_IMPLEMENTATION` in one `.cpp` file. This isnt the most efficient
+way to include clap on your project but hey, you do you x)
 
 ## Example
 
@@ -85,12 +89,15 @@ int main(int argc, char** argv) {
 ```
 
 `parse` never throws on bad input. It fills every value it can, records the
-first error, and returns `true` on success or `false` otherwise. You own the
-help flag: register it like any other, then print `app.help()` when it is set.
+first error, and returns `true` on success or `false` otherwise.
+
+You own the help flag: register it like any other, then print `app.help()` 
+when it is set.
+
 Because the whole argv is parsed before you react, checking `help` first lets it
-win over a missing-required error. Nothing prints or exits behind your back — if
+win over a missing-required error. Nothing prints or exits behind your back: if
 you want that convenience, wrap the `App` in your own class (see
-`examples/encapsulated`).
+`examples/encapsulated` or `examples/struct_args`).
 
 ## Building the examples and tests
 
@@ -104,37 +111,124 @@ Each example builds into its own folder under `examples/`.
 
 ## Features
 
-- Flags. Boolean switches like `-v` or `--verbose`. Registered with
-  `app.flag(...)` and read with a bool conversion.
-- Typed options. Values parsed into a type, for example
-  `app.option<int>("-c,--count", ...)`. Read with `.get()`.
-- Default values. `option<int>(...).default_value(10)` uses the default when
-  the option is absent. For a fallback computed at runtime (from another
-  argument, the environment, ...) read it with `.get_or(fallback)` instead.
-- Positional arguments. Order-based arguments with no dash, registered with
-  `app.positional<T>(...)`.
-- Repeatable multi-value options. Pass the same flag more than once to build a
-  list, for example `-t a -t b`. Registered with `app.multi_option<T>(...)`.
-- Required and optional arguments. Mark an argument required with
-  `.required()`. Parsing fails if it is missing.
-- Short flag clustering. Combine short flags like `-vf` and attach values like
-  `-c10`. Negatives work in the attached form (`-c-5`, `--count=-5`); a spaced
-  `-c -5` is rejected because `-5` looks like a flag.
-- Long options with equals. Both `--count 10` and `--count=10` work.
-- End-of-options separator. A bare `--` turns off flag parsing: every token
-  after it is treated as positional, even ones starting with a dash.
-- Discard override. A `/` right after the dashes (`-/v`, `--/count=3`) parses
-  and validates the argument like normal but records nothing, so the argument
-  stays unset. The token still has to be a valid, known argument.
-- Custom value types. Teach clap your own type by specializing
-  `clap::TypeName` and `clap::ParseValue`. See `examples/custom_type`.
-- Errors without exceptions. `parse` never throws on bad input: it returns
-  `false` and records the first error. Read the printable message plus usage
-  line with `app.error()`, and the category with `app.error_kind()`
-  (`UnknownArgument`, `MissingValue`, `InvalidValue`, ...). Only misconfiguring
-  the parser (duplicate or malformed names) throws — a `ConfigError` at
-  registration, because that is a bug in your program, not the user's input.
-- Help is just a flag. clap registers nothing automatically. Register
-  `-h,--help` (or any name you like) yourself, and print `app.help()` when it is
-  set. This keeps the names free when you want them and never forces behaviour
-  on you. See `examples/custom_help`.
+### Flags and options
+
+A flag is a boolean switch. An option carries a value, parsed into the type you
+ask for.
+
+```cpp
+auto& verbose = app.flag("-v,--verbose", "Enable verbose output");
+auto& count   = app.option<int>("-c,--count", "How many");
+
+if (verbose) { ... }        // flags read as a bool
+int n = count.get();        // options return the parsed value
+```
+
+> Note: you can do `app.option<bool>`, but c'mon, use a flag.
+
+`.default_value(10)` fills in when the flag is absent. If the fallback depends
+on something only known at runtime, drop the default and read it with
+`.get_or(fallback)` (ex, random seed, or value dependant on another argument).
+
+### Help is just a flag
+
+clap registers nothing behind your back. Register `-h,--help` yourself, print
+`app.help()` when it's set. The names stay yours (`examples/custom_help`).
+
+### Positionals and variadics
+
+Positionals match by order, no dash.
+
+```cpp
+auto& input = app.positional<std::string>("input", "Input file");
+// ./prog file.txt              -> input.get() == "file.txt"
+```
+
+You can also define **variadic** arguments. It must be the last positional-type 
+argument defined. It collects every remaining token into a list. Same shape as 
+`touch a b c`.
+
+```cpp
+auto& files = app.variadic<std::string>("files", "Files to process");
+// ./prog a.txt b.txt c.txt     -> files.get() = {"a.txt", "b.txt", "c.txt"}
+```
+Only one variadic, nothing after it, else clap throws a `ConfigError` at registration.
+
+Options repeat too. Pass the flag again to grow the list (`examples/multi_option`):
+
+```cpp
+auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)");
+// -t red -t green   ->   tags.get() == {"red", "green"}
+```
+
+### Required, optional, custom types
+
+Everything is optional until you chain `.required()` (`examples/required_optional`).
+Positional arguments are required by default, unless marked with a `.default_value()`
+
+For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
+and it works everywhere a built-in does (`examples/custom_type`).
+
+### Syntax clap understands
+
+Short flags cluster (`-vf`) and take attached values (`-c10`). Long options
+accept `--count 10` or `--count=10` (`examples/short_clusters`).
+
+**Flag discarding.** putting a `/` after the dashes discards the following
+flag. This acts like "commenting out" a flag to test your app quickly. 
+
+> Note: the validation is still applied, so a wrong type for a discarded
+flag will still give out an error
+
+```
+./prog -/v            # flag stays false
+./prog --/count=3     # 3 is parsed and range-checked, then discarded
+./prog --/count=abc   # error: count expects and int, got string
+```
+
+This is super convenient and one of the features that I love the most.
+IMO, this should be standard, at shell level even. 
+
+**End of options with `--`.** The standard POSIX signal for "stop reading
+flags." Every token after it is positional, even dash-leading ones. Same `--`
+you use with `grep` and `rm` (`examples/separator`).
+
+### Negative numbers read as flags
+
+clap can't tell `-5` from a flag, so a spaced negative is rejected:
+
+```
+./prog -c -5      # rejected
+./prog -5         # Unknown argument, even for a positional
+```
+
+Options take the value attached or with `=`:
+
+```
+./prog -c-5
+./prog --count=-5
+```
+
+Positionals have neither form, so use `--`:
+
+```
+./prog -- -5
+```
+
+### Errors are values, not exceptions
+
+`parse` never throws on bad input. It fills every value it can, keeps the
+**first** error, and returns `false`.
+
+```cpp
+if (!app.parse(argc, argv)) {
+    std::cerr << app.error();     // message plus usage line
+    return 1;
+}
+```
+
+`app.error_kind()` gives the category to branch on (`UnknownArgument`,
+`MissingValue`, `InvalidValue`, ...).
+
+Misconfiguring the parser is the exception: duplicate names and the like throw a
+`ConfigError` at registration, since that's your bug, not the user's input.
