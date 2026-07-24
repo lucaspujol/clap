@@ -88,19 +88,36 @@ struct StandardApp : ::testing::Test {
 // Feature suites: same standard app, one GTest suite name per feature so output
 // and --gtest_filter group by behaviour. Add a `TEST_F(<suite>, ...)` under the
 // matching section to reuse the standard app.
-struct LongOptions : StandardApp {};
+struct Flags        : StandardApp {};
+struct LongOptions  : StandardApp {};
 struct ShortOptions : StandardApp {};
-struct Clusters : StandardApp {};
-struct Positionals : StandardApp {};
+struct Clusters     : StandardApp {};
+struct Positionals  : StandardApp {};
 struct MultiOptions : StandardApp {};
-struct Variadic : StandardApp {};
-struct Values : StandardApp {};
+struct Variadic     : StandardApp {};
+struct Values       : StandardApp {};
 struct RangeChoices : StandardApp {};
-struct HelpFlag : StandardApp {};
-struct Errors : StandardApp {};
-struct Usage : StandardApp {};
+struct HelpFlag     : StandardApp {};
+struct Errors       : StandardApp {};
+struct Usage        : StandardApp {};
 struct Registration : StandardApp {};
-struct ParseResult : StandardApp {};
+struct ParseResult  : StandardApp {};
+
+// =============================================================================
+// Flags:  -v | --verbose
+// =============================================================================
+
+TEST_F(Flags, Short) {
+    Argv a{"prog", "-v"};
+    expect_ok(app, a);
+    EXPECT_TRUE(verbose);
+}
+
+TEST_F(Flags, ShortIsSet) {
+    Argv a{"prog", "-v"};
+    expect_ok(app, a);
+    EXPECT_TRUE(verbose.is_set());
+}
 
 // =============================================================================
 // Long options:  --count 10 | --count=10
@@ -122,6 +139,45 @@ TEST_F(LongOptions, EqualsNegativeValue) {
     Argv a{"prog", "--count=-5"};
     expect_ok(app, a);
     EXPECT_EQ(count.get(), -5);
+}
+
+
+// --- custom app: argument both required and default_value -------------------
+
+TEST_F(LongOptions, RequiredAndDefaultValueRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(
+        app.option<int>("-c,--count", "count")
+            .required()
+            .default_value(10),
+        clap::ConfigError
+    );
+}
+
+TEST_F(LongOptions, RequiredAndDefaultValueRejectedInvertedOrder) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(
+        app.option<int>("-c,--count", "count")
+            .default_value(10)
+            .required(),
+        clap::ConfigError
+    );
+}
+
+// --- custom app: default value testing --------------------------------------
+
+TEST_F(LongOptions, DefaultStrCalled) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").default_value(10);
+    Argv a{"prog", "--count=10"};
+    EXPECT_EQ(count.default_str(), "10");
+}
+
+TEST_F(LongOptions, GetReturnsDefaultWhenAbsent) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").default_value(10);
+    Argv a{"prog"};
+    EXPECT_EQ(count.get(), 10);
 }
 
 // =============================================================================
@@ -175,6 +231,11 @@ TEST_F(Positionals, StringAcceptsSpaces) {
     EXPECT_EQ(input.get(), "a b c");
 }
 
+TEST_F(Positionals, TakesValueReturnsTrue) {
+    EXPECT_TRUE(input.takes_value());
+}
+
+
 // --- custom apps: default_value makes a positional optional -----------------
 
 TEST_F(Positionals, DefaultUsedWhenAbsent) {
@@ -210,6 +271,14 @@ TEST_F(Positionals, RequiredPresentParses) {
     EXPECT_EQ(scene.get(), "scene.txt");
 }
 
+// --- custom apps: throws on empty value -------------------------------------
+
+TEST_F(Positionals, GetBeforeParseThrows) {
+    clap::App app{"prog", "d"};
+    auto& in = app.positional<std::string>("input", "in");
+    EXPECT_THROW(in.get(), clap::MissingValue);
+}
+
 // =============================================================================
 // Multi-options:  repeat the flag; never greedy
 // =============================================================================
@@ -237,6 +306,16 @@ TEST_F(MultiOptions, NotGreedy) {
     ASSERT_EQ(names.get().size(), 1u);
     EXPECT_EQ(names.get()[0], "a");
     EXPECT_EQ(input.get(), "b");
+}
+
+// --- Value list security check ----------------------------------------------
+
+TEST_F(Variadic, ValueListThrowsOnEmptyRequired) {
+    clap::App app{"prog", "d"};
+    auto &v = app.multi_option<int>("-n,--nums", "numbers")
+                  .required();
+    Argv a{"prog"};
+    EXPECT_THROW(v.get(), clap::MissingValue);
 }
 
 // =============================================================================
@@ -566,6 +645,11 @@ TEST_F(Errors, FirstErrorIsTheReportedOne) {
     EXPECT_FALSE(app.parse(a.argc(), a.argv()));
     EXPECT_EQ(app.error_kind(), clap::ErrorKind::UnknownArgument);
     EXPECT_NE(app.error().find("Unknown argument: --nope"), std::string::npos);
+}
+
+TEST_F(Errors, ValueOutOfRange) {
+    Argv a{"prog", "--count=7000000000000000"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
 // --- custom app: a required option that is absent ---------------------------
