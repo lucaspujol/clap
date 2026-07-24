@@ -8,7 +8,8 @@
 std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
-        return arg.is_required() ? core : "[" + core + "]";
+        std::string tail = arg.is_multi() ? "..." : "";
+        return arg.is_required() ? core + tail : "[" + core + "]" + tail;
     }
     if (!arg.takes_value())
         return "[" + std::string(arg.primary_name()) + "]";

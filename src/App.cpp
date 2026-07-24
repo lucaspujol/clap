@@ -62,6 +62,11 @@ void clap::App::add_positional(std::unique_ptr<Argument> pos) {
             "positional registered with an empty name or a comma (a positional has exactly one name)"
     );
     const auto& name = names.front();
+    if (!_positionals.empty() && _positionals.back()->is_multi())
+        throw clap::ConfigError(pos->location(),
+            "positional '" + name + "' declared after variadic positional '"
+            + _positionals.back()->raw_names().front() + "' (a variadic must be last)",
+            _positionals.back()->location());
     for (const auto& existing : _positionals) {
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
@@ -152,7 +157,10 @@ bool clap::App::parse(int argc, char **argv) {
 void clap::App::handle_positional(std::string_view token) {
     if (_positional_idx >= _positionals.size())
         throw clap::UnknownArgument(std::string(token));
-    _positionals[_positional_idx++]->parse(token);
+    auto& pos = _positionals[_positional_idx];
+    pos->parse(token);
+    if (!pos->is_multi())          // a variadic slot keeps eating; don't advance
+        _positional_idx++;
 }
 
 // --option=value

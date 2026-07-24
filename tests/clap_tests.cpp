@@ -81,7 +81,7 @@ struct StandardApp : ::testing::Test {
     clap::Flag& verbose = app.flag("-v,--verbose", "verbose");
     clap::Flag& force = app.flag("-f,--force", "force");
     clap::Option<int>& count = app.option<int>("-c,--count", "count");
-    clap::MultiOption<std::string>& names = app.multi_option<std::string>("-n,--names", "names");
+    clap::ValueList<std::string>& names = app.multi_option<std::string>("-n,--names", "names");
     clap::Positional<std::string>& input = app.positional<std::string>("input", "input").default_value("");
 };
 
@@ -93,6 +93,7 @@ struct ShortOptions : StandardApp {};
 struct Clusters : StandardApp {};
 struct Positionals : StandardApp {};
 struct MultiOptions : StandardApp {};
+struct Variadic : StandardApp {};
 struct Values : StandardApp {};
 struct HelpFlag : StandardApp {};
 struct Errors : StandardApp {};
@@ -221,6 +222,13 @@ TEST_F(MultiOptions, RepeatsFlag) {
     EXPECT_EQ(names.get()[2], "carol");
 }
 
+TEST_F(MultiOptions, EmptyWhenOptionalAndAbsent) {
+    // `names` is optional in the standard app; absent -> empty, get() must not throw.
+    Argv a{"prog", "file.txt"};
+    expect_ok(app, a);
+    EXPECT_TRUE(names.get().empty());
+}
+
 TEST_F(MultiOptions, NotGreedy) {
     // "-n a b": n takes only "a"; "b" falls through to the positional slot.
     Argv a{"prog", "-n", "a", "b"};
@@ -228,6 +236,89 @@ TEST_F(MultiOptions, NotGreedy) {
     ASSERT_EQ(names.get().size(), 1u);
     EXPECT_EQ(names.get()[0], "a");
     EXPECT_EQ(input.get(), "b");
+}
+
+// =============================================================================
+// Variadic positional:  the last positional slot greedily collects the rest
+// =============================================================================
+
+TEST_F(Variadic, CollectsRemainingTokens) {
+    clap::App app{"prog", "d"};
+    auto& files = app.variadic<std::string>("files", "input files");
+    Argv a{"prog", "a.txt", "b.txt", "c.txt"};
+    expect_ok(app, a);
+    ASSERT_EQ(files.get().size(), 3u);
+    EXPECT_EQ(files.get()[0], "a.txt");
+    EXPECT_EQ(files.get()[1], "b.txt");
+    EXPECT_EQ(files.get()[2], "c.txt");
+}
+
+TEST_F(Variadic, FixedPositionalThenVariadic) {
+    // First slot takes one token; the variadic eats everything after it.
+    clap::App app{"prog", "d"};
+    auto& fmt = app.positional<std::string>("format", "output format");
+    auto& files = app.variadic<std::string>("files", "input files");
+    Argv a{"prog", "json", "a", "b"};
+    expect_ok(app, a);
+    EXPECT_EQ(fmt.get(), "json");
+    ASSERT_EQ(files.get().size(), 2u);
+    EXPECT_EQ(files.get()[0], "a");
+    EXPECT_EQ(files.get()[1], "b");
+}
+
+TEST_F(Variadic, EmptyAllowedWhenNotRequired) {
+    clap::App app{"prog", "d"};
+    auto& files = app.variadic<std::string>("files", "input files");
+    Argv a{"prog"};
+    expect_ok(app, a);
+    EXPECT_TRUE(files.get().empty());      // optional + absent -> empty, no throw
+}
+
+TEST_F(Variadic, RequiredEmptyReported) {
+    clap::App app{"prog", "d"};
+    app.variadic<std::string>("files", "input files").required();
+    Argv a{"prog"};
+    expect_error(app, a, clap::ErrorKind::MissingRequiredValue);
+}
+
+TEST_F(Variadic, TypedConversion) {
+    clap::App app{"prog", "d"};
+    auto& nums = app.variadic<int>("nums", "numbers");
+    Argv a{"prog", "1", "2", "3"};
+    expect_ok(app, a);
+    ASSERT_EQ(nums.get().size(), 3u);
+    EXPECT_EQ(nums.get()[0], 1);
+    EXPECT_EQ(nums.get()[2], 3);
+}
+
+TEST_F(Variadic, BadValueReported) {
+    clap::App app{"prog", "d"};
+    app.variadic<int>("nums", "numbers");
+    Argv a{"prog", "1", "oops"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Variadic, DashDashForcesLiteralCollection) {
+    // Everything after "--" is positional, even flag-looking tokens.
+    clap::App app{"prog", "d"};
+    auto& files = app.variadic<std::string>("files", "input files");
+    Argv a{"prog", "--", "-x", "--y"};
+    expect_ok(app, a);
+    ASSERT_EQ(files.get().size(), 2u);
+    EXPECT_EQ(files.get()[0], "-x");
+    EXPECT_EQ(files.get()[1], "--y");
+}
+
+TEST_F(Variadic, PositionalAfterVariadicRejected) {
+    clap::App app{"prog", "d"};
+    app.variadic<std::string>("files", "input files");
+    EXPECT_THROW(app.positional<std::string>("trailing", "nope"), clap::ConfigError);
+}
+
+TEST_F(Variadic, SecondVariadicRejected) {
+    clap::App app{"prog", "d"};
+    app.variadic<std::string>("files", "input files");
+    EXPECT_THROW(app.variadic<std::string>("more", "nope"), clap::ConfigError);
 }
 
 // =============================================================================

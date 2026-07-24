@@ -477,19 +477,20 @@ namespace clap {
     };
 }
 
-// ===== MultiOption.hpp =====
+// ===== ValueList.hpp =====
 namespace clap {
-    /// A named option repeated to collect a list, e.g. -t a -t b.
+    /// Collects multiple parsed values of T into a list. Backs both a repeated
+    /// named option (-t a -t b) and a variadic positional (prog a b c); the two
+    /// differ only in how App routes tokens to them, not in how they store.
     template<typename T>
-    class MultiOption : public Argument {
+    class ValueList : public Argument {
     public:
-        MultiOption(std::string names, std::string description)
+        ValueList(std::string names, std::string description)
         : Argument(std::move(names), std::move(description)) {}
 
         void parse(std::string_view value, bool discard) override {
             auto v = clap::parse_checked<T>(value, names(), type_name());
             if (!discard) _values.push_back(std::move(v));
-
         }
 
         std::string_view type_name() const override {
@@ -500,15 +501,16 @@ namespace clap {
         bool takes_value() const noexcept override { return true; }
         bool is_multi() const noexcept override { return true; }
 
-        /// Mark as required. Parsing fails if the flag never appears.
-        MultiOption<T>& required() {
+        /// Require at least one value. Parsing fails if none is given.
+        ValueList<T>& required() {
             set_required();
             return *this;
         }
 
-        /// All collected values. Throws MissingValue if none were given.
+        /// All collected values. Empty when nothing was given and not required;
+        /// throws MissingValue only if this list is required but stayed empty.
         const std::vector<T>& get() const {
-            if (_values.empty())
+            if (_values.empty() && is_required())
                 throw clap::MissingValue(std::string(names()));
             return _values;
         }
@@ -647,16 +649,32 @@ namespace clap {
 
             /// Register a repeatable option, e.g. multi_option<std::string>("-t,--tag", "...").
             template<typename T>
-            MultiOption<T>& multi_option(std::string names, std::string description,
-                                         std::source_location loc = std::source_location::current()) {
+            ValueList<T>& multi_option(std::string names, std::string description,
+                                       std::source_location loc = std::source_location::current()) {
                 static_assert(Parseable<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
-                auto opt = std::make_unique<MultiOption<T>>(std::move(names), std::move(description));
+                auto opt = std::make_unique<ValueList<T>>(std::move(names), std::move(description));
                 opt->set_location(loc);
                 auto& ref = *opt;
                 add_argument(std::move(opt));
+                return ref;
+            }
+
+            /// Register a variadic positional, e.g. variadic<std::string>("files", "...").
+            /// Must be the last positional; greedily collects every remaining token.
+            template<typename T>
+            ValueList<T>& variadic(std::string name, std::string description,
+                                   std::source_location loc = std::source_location::current()) {
+                static_assert(Parseable<T>,
+                    "clap: this positional's value type cannot be parsed from a string. "
+                    "Give it operator>> or specialize clap::ParseValue<T> (and "
+                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                auto pos = std::make_unique<ValueList<T>>(std::move(name), std::move(description));
+                pos->set_location(loc);
+                auto& ref = *pos;
+                add_positional(std::move(pos));
                 return ref;
             }
 
@@ -732,7 +750,8 @@ namespace clap {
 std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
-        return arg.is_required() ? core : "[" + core + "]";
+        std::string tail = arg.is_multi() ? "..." : "";
+        return arg.is_required() ? core + tail : "[" + core + "]" + tail;
     }
     if (!arg.takes_value())
         return "[" + std::string(arg.primary_name()) + "]";
@@ -870,6 +889,11 @@ void clap::App::add_positional(std::unique_ptr<Argument> pos) {
             "positional registered with an empty name or a comma (a positional has exactly one name)"
     );
     const auto& name = names.front();
+    if (!_positionals.empty() && _positionals.back()->is_multi())
+        throw clap::ConfigError(pos->location(),
+            "positional '" + name + "' declared after variadic positional '"
+            + _positionals.back()->raw_names().front() + "' (a variadic must be last)",
+            _positionals.back()->location());
     for (const auto& existing : _positionals) {
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
@@ -960,7 +984,10 @@ bool clap::App::parse(int argc, char **argv) {
 void clap::App::handle_positional(std::string_view token) {
     if (_positional_idx >= _positionals.size())
         throw clap::UnknownArgument(std::string(token));
-    _positionals[_positional_idx++]->parse(token);
+    auto& pos = _positionals[_positional_idx];
+    pos->parse(token);
+    if (!pos->is_multi())          // a variadic slot keeps eating; don't advance
+        _positional_idx++;
 }
 
 // --option=value

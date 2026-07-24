@@ -38,7 +38,7 @@ struct Args {
     clap::Option<int>& port = app.option<int>("-p,--port", "server port").default_value(8080);
     clap::Option<int>& size = app.option<int>("-s,--size", "map size").required();
     clap::Option<int>& elevation = app.option<int>("-e,--elevation", "elevation offset").default_value(0);
-    clap::MultiOption<std::string>& teams = app.multi_option<std::string>("-n", "team names").required();
+    clap::ValueList<std::string>& teams = app.multi_option<std::string>("-n", "team names").required();
     clap::Positional<std::string>& input = app.positional<std::string>("input", "input file");
     clap::Option<std::string>& output = app.option<std::string>("-o,--output", "the output (default: <input>.out)");
     clap::Flag& help = app.flag("-h,--help", "show this help message");
