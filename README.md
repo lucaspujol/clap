@@ -169,6 +169,34 @@ Positional arguments are required by default, unless marked with a `.default_val
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
 and it works everywhere a built-in does (`examples/custom_type`).
 
+### Constraining values
+
+A type says *how* a value parses, not *which* values are allowed. `"jsn"` is a
+perfectly fine string, it just isn't a format you support. Two ways to say so:
+
+```cpp
+app.option<std::string>("-f,--format", "output format")
+   .choices({"json", "xml", "yaml"});
+
+app.option<int>("-j,--jobs", "parallel jobs")
+   .range(1, 64);
+```
+
+`.choices()` pins the value to a set, `.range()` to an inclusive `[lo, hi]`.
+Anything outside fails with the same `InvalidValue` you get from any other bad
+input, worded the same way, no hand-rolled compare-and-print block on your side.
+
+`.choices()` also feeds the help: the option reads `<json|xml|yaml>` instead of
+`<string>`, so the allowed values document themselves.
+
+They chain like the rest, and work on positionals and lists too. On a list
+`.range()` checks every element:
+
+```cpp
+app.positional<std::string>("mode", "run mode").choices({"fast", "safe"});
+app.variadic<int>("ports", "ports to bind").range(1, 65535);
+```
+
 ### Syntax clap understands
 
 Short flags cluster (`-vf`) and take attached values (`-c10`). Long options
