@@ -35,7 +35,12 @@ option(CLAP_COVERAGE "Build tests with coverage instrumentation" OFF)
 
 if(CLAP_BUILD_TESTS)
     find_package(GTest REQUIRED)
-    add_executable(clap_tests tests/clap_tests.cpp)
+    # One file per area (see tests/README.md); globbed so adding one needs no
+    # build change. coverage_probe.cpp is added below, coverage builds only.
+    file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
+    list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_probe.cpp)
+    add_executable(clap_tests ${TEST_SOURCES})
+    target_include_directories(clap_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
     target_link_libraries(clap_tests PRIVATE clap GTest::gtest GTest::gtest_main)
     target_compile_options(clap_tests PRIVATE -Wall -Wextra)
 

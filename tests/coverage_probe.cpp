@@ -15,8 +15,7 @@
 // This file executes nothing.
 // CLAP_IMPLEMENTATION is deliberately NOT defined here.
 
-#include <clap.hpp>
-
+#include "support/clap_header.hpp"
 #include <string>
 
 template class clap::Option<int>;
