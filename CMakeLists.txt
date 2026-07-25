@@ -15,7 +15,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 file(GLOB EXAMPLE_DIRS LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/examples/*)
 foreach(example_dir ${EXAMPLE_DIRS})
     # An example carrying its own CMakeLists.txt is a standalone project
-    # (e.g. fetchcontent/) — it configures itself, skip it here.
+    # (e.g. fetchcontent/): it configures itself, skip it here.
     if(IS_DIRECTORY ${example_dir} AND NOT EXISTS ${example_dir}/CMakeLists.txt)
         file(GLOB example_srcs CONFIGURE_DEPENDS ${example_dir}/*.cpp)
         if(example_srcs)
@@ -42,6 +42,10 @@ if(CLAP_BUILD_TESTS)
     if(CLAP_COVERAGE)
         target_compile_options(clap_tests PRIVATE --coverage -O0 -g)
         target_link_options(clap_tests PRIVATE --coverage)
+
+        target_sources(clap_tests PRIVATE tests/coverage_probe.cpp)
+        set_source_files_properties(tests/coverage_probe.cpp
+            PROPERTIES COMPILE_OPTIONS -fkeep-inline-functions)
     endif()
 
     enable_testing()
