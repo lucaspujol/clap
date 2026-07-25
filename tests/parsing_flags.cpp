@@ -26,6 +26,40 @@ TEST_F(Flags, ShortIsSet) {
     EXPECT_TRUE(verbose.is_set());
 }
 
+// --- count(): a flag remembers how many times it was given -------------------
+
+TEST_F(Flags, CountIsZeroWhenAbsent) {
+    Argv a{"prog"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 0);
+    EXPECT_FALSE(verbose);
+}
+
+TEST_F(Flags, CountIsOneWhenGivenOnce) {
+    Argv a{"prog", "-v"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 1);
+}
+
+TEST_F(Flags, CountsSeparateRepeats) {
+    Argv a{"prog", "-v", "-v"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 2);
+    EXPECT_TRUE(verbose);
+}
+
+TEST_F(Flags, CountsLongFormRepeats) {
+    Argv a{"prog", "--verbose", "--verbose", "--verbose"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 3);
+}
+
+TEST_F(Flags, CountsMixedShortAndLong) {
+    Argv a{"prog", "-v", "--verbose"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 2);
+}
+
 // =============================================================================
 // Short clusters:  -vf  (flags combine) | -vc 10  (trailing option takes value)
 // =============================================================================
@@ -55,4 +89,26 @@ TEST_F(Clusters, TrailingValueOptionWithNoValueErrors) {
     // -vc: c takes a value but the cluster ends and nothing follows.
     Argv a{"prog", "-vc"};
     expect_error(app, a, clap::ErrorKind::MissingValue);
+}
+
+// --- count() inside a cluster: -vvv is the whole point of counting -----------
+
+TEST_F(Clusters, RepeatedFlagInClusterCounts) {
+    Argv a{"prog", "-vvv"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 3);
+    EXPECT_TRUE(verbose);
+}
+
+TEST_F(Clusters, RepeatsAccumulateAcrossClusters) {
+    Argv a{"prog", "-vv", "-v"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 3);
+}
+
+TEST_F(Clusters, DistinctFlagsInClusterCountSeparately) {
+    Argv a{"prog", "-vvf"};
+    expect_ok(app, a);
+    EXPECT_EQ(verbose.count(), 2);
+    EXPECT_EQ(force.count(), 1);
 }
