@@ -61,3 +61,73 @@ TEST_F(Values, HelpDisplayOfFilepathShowsPath) {
     app.option<std::filesystem::path>("-p", "path");
     EXPECT_NE(app.help().find("<path>"), std::string::npos);
 }
+
+// --- double -----------------------------------------------------------------
+
+TEST_F(Values, DoubleParsesFractional) {
+    clap::App app{"prog", "d"};
+    auto& d = app.option<double>("-d", "double");
+    Argv a{"prog", "-d", "1.5"};
+    expect_ok(app, a);
+    EXPECT_DOUBLE_EQ(d.get(), 1.5);
+}
+
+TEST_F(Values, DoubleParsesNegative) {
+    clap::App app{"prog", "d"};
+    auto& d = app.option<double>("-d", "double");
+    Argv a{"prog", "-d-2.25"};
+    expect_ok(app, a);
+    EXPECT_DOUBLE_EQ(d.get(), -2.25);
+}
+
+TEST_F(Values, DoubleRejectsTrailingGarbage) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-d", "double");
+    Argv a{"prog", "-d", "1.5x"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Values, DoubleHelpShowsDouble) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-d", "double");
+    EXPECT_NE(app.help().find("<double>"), std::string::npos);
+}
+
+// --- bool: an option, not a flag. ParseValue<bool> takes named spellings. ----
+
+TEST_F(Values, BoolAcceptsTrueSpellings) {
+    for (const char* token : {"1", "true", "yes", "on"}) {
+        clap::App app{"prog", "d"};
+        auto& b = app.option<bool>("-b", "bool");
+        Argv a{"prog", "-b", token};
+        expect_ok(app, a);
+        EXPECT_TRUE(b.get()) << "token: " << token;
+    }
+}
+
+TEST_F(Values, BoolAcceptsFalseSpellings) {
+    for (const char* token : {"0", "false", "no", "off"}) {
+        clap::App app{"prog", "d"};
+        auto& b = app.option<bool>("-b", "bool");
+        Argv a{"prog", "-b", token};
+        expect_ok(app, a);
+        EXPECT_FALSE(b.get()) << "token: " << token;
+    }
+}
+
+TEST_F(Values, BoolRejectsOtherSpellings) {
+    for (const char* token : {"True", "YES", "maybe", "2", ""}) {
+        clap::App app{"prog", "d"};
+        app.option<bool>("-b", "bool");
+        Argv a{"prog", "-b", token};
+        expect_error(app, a, clap::ErrorKind::InvalidValue);
+    }
+}
+
+TEST_F(Values, BoolErrorListsAcceptedValues) {
+    clap::App app{"prog", "d"};
+    app.option<bool>("-b", "bool");
+    Argv a{"prog", "-b", "maybe"};
+    EXPECT_FALSE(app.parse(a.argc(), a.argv()));
+    EXPECT_NE(app.error().find("valid values"), std::string::npos);
+}
