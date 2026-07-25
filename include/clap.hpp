@@ -223,7 +223,6 @@ namespace clap {
             /// Environment variable this argument falls back to, or empty.
             virtual std::string env_key() const { return ""; }
             /// Apply the env-var fallback when still unset. May throw
-            /// ParseException if the env value is malformed. Default: no-op.
             virtual void resolve_env() {}
 
             std::string_view names() const noexcept { return _names_raw; }
@@ -539,11 +538,8 @@ namespace clap {
                 return *this;
             }
 
-            /// Register an environment variable as a fallback source. Only the
-            /// key is stored here; the value is read and validated during
-            /// parse(), so a malformed env value surfaces as a normal parse
-            /// error instead of throwing during setup. Precedence: flag > env >
-            /// default_value() > unset.
+            /// Register an environment variable as a fallback source
+            /// flag > env > default_value() > unset.
             Option<T>& from_env(const std::string& key) {
                 _env_key = key;
                 return *this;
