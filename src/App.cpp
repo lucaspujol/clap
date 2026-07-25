@@ -2,10 +2,12 @@
 #include "ArgCursor.hpp"
 #include "ClapExceptions.hpp"
 #include "HelpFormatter.hpp"
+#include "damerau_osa.hpp"
 #include <cctype>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace {
     bool is_long_body(std::string_view body) {
@@ -83,6 +85,16 @@ clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
     return nullptr;
+}
+
+std::string clap::App::did_you_mean(std::string_view token) const {
+    std::vector<std::string> candidates;
+    for (const auto& arg : _arguments)
+        for (const auto& name : arg->raw_names())
+            candidates.push_back(name);
+
+    std::string match = clap::detail::suggest(token, candidates);
+    return match.empty() ? "" : "did you mean '" + match + "'?";
 }
 
 bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
@@ -181,7 +193,7 @@ void clap::App::parse_long_equals(std::string_view token, bool discard) {
     auto arg_value = token.substr(eq + 1);
     auto *arg = find_argument(arg_name);
     if (!arg)
-        throw clap::UnknownArgument(std::string(arg_name));
+        throw clap::UnknownArgument(std::string(arg_name), did_you_mean(arg_name));
     if (!arg->takes_value())
         throw clap::UnexpectedValue(std::string(arg_name));
     arg->parse(arg_value, discard);
@@ -193,7 +205,7 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, b
         std::string short_name{'-', token[j]};
         auto *arg = find_argument(short_name);
         if (!arg)
-            throw clap::UnknownArgument(short_name);
+            throw clap::UnknownArgument(short_name, did_you_mean(short_name));
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
             if (!attached.empty())
@@ -211,7 +223,7 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, b
 void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
     auto *arg = find_argument(token);
     if (!arg)
-        throw clap::UnknownArgument(std::string(token));
+        throw clap::UnknownArgument(std::string(token), did_you_mean(token));
 
     if (arg->takes_value()) {
         if (!cursor.next_is_value())
