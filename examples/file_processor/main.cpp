@@ -23,10 +23,11 @@ int main(int argc, char** argv) {
     if (help) { std::cout << app.help(); return 0; }
     if (!ok)  { std::cerr << app.error(); return 1; }
 
-    std::cout << "Verbose: " << (verbose ? "ON" : "OFF") << "\n";
-    std::cout << "Force:   " << (force ? "ON" : "OFF") << "\n";
-    std::cout << "Count:   " << count.get() << "\n";
-    std::cout << "Names:   [";
+    std::cout << "Verbose:     " << (verbose ? "ON" : "OFF") << "\n";
+    std::cout << "Verbose lvl: " << verbose.count() << "\n";
+    std::cout << "Force:       " << (force ? "ON" : "OFF") << "\n";
+    std::cout << "Count:       " << count.get() << "\n";
+    std::cout << "Names:      [";
 
     const auto& names_list = names.get();
     for (size_t i = 0; i < names_list.size() - 1; ++i)
@@ -35,8 +36,8 @@ int main(int argc, char** argv) {
         std::cout << names_list.back();
     
     std::cout << "]\n";
-    std::cout << "Input:   " << input.get() << "\n";
-    std::cout << "Output:  " << output.get() << "\n";
+    std::cout << "Input:       " << input.get() << "\n";
+    std::cout << "Output:      " << output.get() << "\n";
 
     return 0;
 }
