@@ -73,6 +73,36 @@ TEST_F(Positionals, GetBeforeParseThrows) {
     EXPECT_THROW(in.get(), clap::MissingValue);
 }
 
+// --- custom apps: positionals are typed, not just strings -------------------
+
+TEST_F(Positionals, TypedConversion) {
+    clap::App app{"prog", "d"};
+    auto& port = app.positional<int>("port", "port");
+    Argv a{"prog", "8080"};
+    expect_ok(app, a);
+    EXPECT_EQ(port.get(), 8080);
+}
+
+TEST_F(Positionals, TypedBadValueReported) {
+    clap::App app{"prog", "d"};
+    app.positional<int>("port", "port");
+    Argv a{"prog", "eighty"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Positionals, TypedDefaultRenderedInHelp) {
+    clap::App app{"prog", "d"};
+    app.positional<int>("port", "port").default_value(8080);
+    EXPECT_NE(app.help().find("(default: 8080)"), std::string::npos);
+}
+
+TEST_F(Positionals, TypedRangeRejectsOutOfBounds) {
+    clap::App app{"prog", "d"};
+    app.positional<int>("port", "port").range(1, 65535);
+    Argv a{"prog", "70000"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
 // --- Value list security check ----------------------------------------------
 
 TEST_F(Variadic, ValueListThrowsOnEmptyRequired) {
