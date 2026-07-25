@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <istream>
@@ -218,6 +219,12 @@ namespace clap {
 
             /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
+
+            /// Environment variable this argument falls back to, or empty.
+            virtual std::string env_key() const { return ""; }
+            /// Apply the env-var fallback when still unset. May throw
+            /// ParseException if the env value is malformed. Default: no-op.
+            virtual void resolve_env() {}
 
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
@@ -532,6 +539,35 @@ namespace clap {
                 return *this;
             }
 
+            /// Register an environment variable as a fallback source. Only the
+            /// key is stored here; the value is read and validated during
+            /// parse(), so a malformed env value surfaces as a normal parse
+            /// error instead of throwing during setup. Precedence: flag > env >
+            /// default_value() > unset.
+            Option<T>& from_env(const std::string& key) {
+                _env_key = key;
+                return *this;
+            }
+
+            std::string env_key() const override { return _env_key; }
+
+            /// Fill from the env var when argv left this unset. Bad env values
+            /// throw InvalidValue tagged with the source, caught by parse().
+            void resolve_env() override {
+                if (_value.has_value() || _env_key.empty())
+                    return;
+                const char *raw = std::getenv(_env_key.c_str());
+                if (raw == nullptr)
+                    return;
+                try {
+                    _value = this->parse_value(raw);
+                } catch (const clap::InvalidValue&) {
+                    throw clap::InvalidValue(raw, std::string(this->names()),
+                                             std::string(this->type_name()),
+                                             "from environment '" + _env_key + "'");
+                }
+            }
+
             /// The parsed value, else the default. Throws MissingValue if neither.
             const T& get() const {
                 if (_value.has_value())
@@ -553,6 +589,7 @@ namespace clap {
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
+            std::string _env_key;
     };
 }
 
@@ -849,11 +886,14 @@ std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
 }
 
 std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+    std::string s;
     if (arg.is_required())
-        return " (required)";
-    if (!arg.default_str().empty())
-        return " (default: " + arg.default_str() + ")";
-    return "";
+        s += " (required)";
+    else if (!arg.default_str().empty())
+        s += " (default: " + arg.default_str() + ")";
+    if (!arg.env_key().empty())
+        s += " (env: " + arg.env_key() + ")";
+    return s;
 }
 
 size_t clap::HelpFormatter::name_width() const {
@@ -1035,6 +1075,17 @@ bool clap::App::parse(int argc, char **argv) {
         } catch (const clap::ParseException& e) {
             if (!failure)
                 failure = e;
+        }
+    }
+
+    if (!failure) {
+        for (auto& arg : _arguments) {
+            try {
+                arg->resolve_env();
+            } catch (const clap::ParseException& e) {
+                if (!failure)
+                    failure = e;
+            }
         }
     }
 
