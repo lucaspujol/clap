@@ -51,9 +51,10 @@ namespace clap {
     /// An argument was passed that was never registered.
     class UnknownArgument : public ParseException {
         public:
-            UnknownArgument(const std::string& arg)
+            UnknownArgument(const std::string& arg, const std::string& hint = "")
                 : ParseException(ErrorKind::UnknownArgument,
-                                 "Unknown argument: " + arg) {}
+                                 "Unknown argument: " + arg
+                                 + (hint.empty() ? "" : "\n\t" + hint)) {}
     };
 
     /// A value-taking argument was given no value.
