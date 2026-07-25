@@ -138,6 +138,17 @@ bool clap::App::parse(int argc, char **argv) {
     }
 
     if (!failure) {
+        for (auto& arg : _arguments) {
+            try {
+                arg->resolve_env();
+            } catch (const clap::ParseException& e) {
+                if (!failure)
+                    failure = e;
+            }
+        }
+    }
+
+    if (!failure) {
         try {
             check_required();
         } catch (const clap::ParseException& e) {
