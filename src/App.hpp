@@ -133,6 +133,9 @@ namespace clap {
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
             Argument* find_argument(std::string_view name);
+            /// "did you mean '--x'?" for an unrecognised token, "" when nothing
+            /// registered is close enough.
+            std::string did_you_mean(std::string_view token) const;
             static bool starts_with(std::string_view str, std::string_view prefix);
 
             void dispatch(std::string_view token, ArgCursor& cursor);

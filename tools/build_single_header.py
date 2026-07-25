@@ -16,6 +16,7 @@ VERSION = os.environ.get("CLAP_VERSION", "dev")
 # could topologically sort the deps but this is easier
 HEADER_ORDER = [
     "ClapExceptions.hpp",
+    "damerau_osa.hpp",
     "TypeNames.hpp",
     "Argument.hpp",
     "ArgCursor.hpp",
@@ -29,6 +30,7 @@ HEADER_ORDER = [
     "App.hpp",
 ]
 IMPL_ORDER = [
+    "damerau_osa.cpp",
     "HelpFormatter.cpp",
     "App.cpp",
 ]
