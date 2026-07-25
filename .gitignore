@@ -60,3 +60,4 @@ examples/**/build/
 # temp dir
 temp/
 build-cov/
+.cache/
