@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdlib>
 #include <string>
 #include <optional>
 #include <sstream>
@@ -9,7 +10,7 @@
 
 namespace clap {
     /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Option : public TypedArgument<T, Option<T>> {
@@ -21,7 +22,7 @@ namespace clap {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
             }
-            
+
             bool is_set() const noexcept override { return _value.has_value(); }
 
             /// Mark as required. Parsing fails if absent. Excludes default_value().
@@ -50,6 +51,32 @@ namespace clap {
                 return *this;
             }
 
+            /// Register an environment variable as a fallback source
+            /// flag > env > default_value() > unset.
+            Option<T>& from_env(const std::string& key) {
+                _env_key = key;
+                return *this;
+            }
+
+            std::string env_key() const override { return _env_key; }
+
+            /// Fill from the env var when argv left this unset. Bad env values
+            /// throw InvalidValue tagged with the source, caught by parse().
+            void resolve_env() override {
+                if (_value.has_value() || _env_key.empty())
+                    return;
+                const char *raw = std::getenv(_env_key.c_str());
+                if (raw == nullptr)
+                    return;
+                try {
+                    _value = this->parse_value(raw);
+                } catch (const clap::InvalidValue&) {
+                    throw clap::InvalidValue(raw, std::string(this->names()),
+                                             std::string(this->type_name()),
+                                             "from environment '" + _env_key + "'");
+                }
+            }
+
             /// The parsed value, else the default. Throws MissingValue if neither.
             const T& get() const {
                 if (_value.has_value())
@@ -71,5 +98,6 @@ namespace clap {
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
+            std::string _env_key;
     };
 }

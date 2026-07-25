@@ -33,11 +33,14 @@ std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
 }
 
 std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+    std::string s;
     if (arg.is_required())
-        return " (required)";
-    if (!arg.default_str().empty())
-        return " (default: " + arg.default_str() + ")";
-    return "";
+        s += " (required)";
+    else if (!arg.default_str().empty())
+        s += " (default: " + arg.default_str() + ")";
+    if (!arg.env_key().empty())
+        s += " (env: " + arg.env_key() + ")";
+    return s;
 }
 
 size_t clap::HelpFormatter::name_width() const {

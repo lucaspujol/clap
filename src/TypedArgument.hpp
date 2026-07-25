@@ -19,7 +19,7 @@ namespace clap {
         public:
             TypedArgument(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
-            
+
             /// help label checks the choices first: <xml|json|yaml>, not <string>
             std::string_view type_name() const override {
                 if (!_choices_label.empty()) return _choices_label;
@@ -37,7 +37,7 @@ namespace clap {
                 _choices_label = oss.str();
                 _choices = std::move(allowed);
                 return self();
-            } 
+            }
 
             /// Restrict accepted values to [lo, hi] range. needs < and <<
             Derived& range(T lo, T hi) {
@@ -53,7 +53,7 @@ namespace clap {
                 validate(v, value);
                 return v;
             }
-            
+
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
@@ -81,7 +81,7 @@ namespace clap {
                 oss << v;
                 return oss.str();
             }
-            
+
             std::vector<T> _choices;
             std::string _choices_label;
             std::optional<std::pair<T, T>> _range;

@@ -32,6 +32,7 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <istream>
@@ -219,6 +220,11 @@ namespace clap {
             /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
+            /// Environment variable this argument falls back to, or empty.
+            virtual std::string env_key() const { return ""; }
+            /// Apply the env-var fallback when still unset. May throw
+            virtual void resolve_env() {}
+
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
             virtual bool is_required() const noexcept { return _required; }
@@ -395,7 +401,7 @@ namespace clap {
         public:
             TypedArgument(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
-            
+
             /// help label checks the choices first: <xml|json|yaml>, not <string>
             std::string_view type_name() const override {
                 if (!_choices_label.empty()) return _choices_label;
@@ -413,7 +419,7 @@ namespace clap {
                 _choices_label = oss.str();
                 _choices = std::move(allowed);
                 return self();
-            } 
+            }
 
             /// Restrict accepted values to [lo, hi] range. needs < and <<
             Derived& range(T lo, T hi) {
@@ -429,7 +435,7 @@ namespace clap {
                 validate(v, value);
                 return v;
             }
-            
+
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
@@ -457,7 +463,7 @@ namespace clap {
                 oss << v;
                 return oss.str();
             }
-            
+
             std::vector<T> _choices;
             std::string _choices_label;
             std::optional<std::pair<T, T>> _range;
@@ -491,7 +497,7 @@ namespace clap {
 // ===== Option.hpp =====
 namespace clap {
     /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Option : public TypedArgument<T, Option<T>> {
@@ -503,7 +509,7 @@ namespace clap {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
             }
-            
+
             bool is_set() const noexcept override { return _value.has_value(); }
 
             /// Mark as required. Parsing fails if absent. Excludes default_value().
@@ -532,6 +538,32 @@ namespace clap {
                 return *this;
             }
 
+            /// Register an environment variable as a fallback source
+            /// flag > env > default_value() > unset.
+            Option<T>& from_env(const std::string& key) {
+                _env_key = key;
+                return *this;
+            }
+
+            std::string env_key() const override { return _env_key; }
+
+            /// Fill from the env var when argv left this unset. Bad env values
+            /// throw InvalidValue tagged with the source, caught by parse().
+            void resolve_env() override {
+                if (_value.has_value() || _env_key.empty())
+                    return;
+                const char *raw = std::getenv(_env_key.c_str());
+                if (raw == nullptr)
+                    return;
+                try {
+                    _value = this->parse_value(raw);
+                } catch (const clap::InvalidValue&) {
+                    throw clap::InvalidValue(raw, std::string(this->names()),
+                                             std::string(this->type_name()),
+                                             "from environment '" + _env_key + "'");
+                }
+            }
+
             /// The parsed value, else the default. Throws MissingValue if neither.
             const T& get() const {
                 if (_value.has_value())
@@ -553,6 +585,7 @@ namespace clap {
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
+            std::string _env_key;
     };
 }
 
@@ -561,7 +594,7 @@ namespace clap {
     /// Collects multiple parsed values of T into a list. Backs both a repeated
     /// named option (-t a -t b) and a variadic positional (prog a b c); the two
     /// differ only in how App routes tokens to them, not in how they store.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class ValueList : public TypedArgument<T, ValueList<T>> {
@@ -601,7 +634,7 @@ namespace clap {
 namespace clap {
     /// An order-based argument with no dash, e.g. an input file.
     /// Required unless given a default_value().
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Positional : public TypedArgument<T, Positional<T>> {
@@ -618,7 +651,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
-            /// Set a fallback value, making the positional optional. 
+            /// Set a fallback value, making the positional optional.
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;
@@ -849,11 +882,14 @@ std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
 }
 
 std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+    std::string s;
     if (arg.is_required())
-        return " (required)";
-    if (!arg.default_str().empty())
-        return " (default: " + arg.default_str() + ")";
-    return "";
+        s += " (required)";
+    else if (!arg.default_str().empty())
+        s += " (default: " + arg.default_str() + ")";
+    if (!arg.env_key().empty())
+        s += " (env: " + arg.env_key() + ")";
+    return s;
 }
 
 size_t clap::HelpFormatter::name_width() const {
@@ -1035,6 +1071,17 @@ bool clap::App::parse(int argc, char **argv) {
         } catch (const clap::ParseException& e) {
             if (!failure)
                 failure = e;
+        }
+    }
+
+    if (!failure) {
+        for (auto& arg : _arguments) {
+            try {
+                arg->resolve_env();
+            } catch (const clap::ParseException& e) {
+                if (!failure)
+                    failure = e;
+            }
         }
     }
 

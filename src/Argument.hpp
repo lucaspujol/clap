@@ -33,6 +33,11 @@ namespace clap {
             /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
+            /// Environment variable this argument falls back to, or empty.
+            virtual std::string env_key() const { return ""; }
+            /// Apply the env-var fallback when still unset. May throw
+            virtual void resolve_env() {}
+
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
             virtual bool is_required() const noexcept { return _required; }
