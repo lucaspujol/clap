@@ -9,7 +9,7 @@ namespace clap {
     /// Collects multiple parsed values of T into a list. Backs both a repeated
     /// named option (-t a -t b) and a variadic positional (prog a b c); the two
     /// differ only in how App routes tokens to them, not in how they store.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class ValueList : public TypedArgument<T, ValueList<T>> {

@@ -395,7 +395,7 @@ namespace clap {
         public:
             TypedArgument(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
-            
+
             /// help label checks the choices first: <xml|json|yaml>, not <string>
             std::string_view type_name() const override {
                 if (!_choices_label.empty()) return _choices_label;
@@ -413,7 +413,7 @@ namespace clap {
                 _choices_label = oss.str();
                 _choices = std::move(allowed);
                 return self();
-            } 
+            }
 
             /// Restrict accepted values to [lo, hi] range. needs < and <<
             Derived& range(T lo, T hi) {
@@ -429,7 +429,7 @@ namespace clap {
                 validate(v, value);
                 return v;
             }
-            
+
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
@@ -457,7 +457,7 @@ namespace clap {
                 oss << v;
                 return oss.str();
             }
-            
+
             std::vector<T> _choices;
             std::string _choices_label;
             std::optional<std::pair<T, T>> _range;
@@ -491,7 +491,7 @@ namespace clap {
 // ===== Option.hpp =====
 namespace clap {
     /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Option : public TypedArgument<T, Option<T>> {
@@ -503,7 +503,7 @@ namespace clap {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
             }
-            
+
             bool is_set() const noexcept override { return _value.has_value(); }
 
             /// Mark as required. Parsing fails if absent. Excludes default_value().
@@ -561,7 +561,7 @@ namespace clap {
     /// Collects multiple parsed values of T into a list. Backs both a repeated
     /// named option (-t a -t b) and a variadic positional (prog a b c); the two
     /// differ only in how App routes tokens to them, not in how they store.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class ValueList : public TypedArgument<T, ValueList<T>> {
@@ -601,7 +601,7 @@ namespace clap {
 namespace clap {
     /// An order-based argument with no dash, e.g. an input file.
     /// Required unless given a default_value().
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Positional : public TypedArgument<T, Positional<T>> {
@@ -618,7 +618,7 @@ namespace clap {
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
-            /// Set a fallback value, making the positional optional. 
+            /// Set a fallback value, making the positional optional.
             Positional<T>& default_value(T val) {
                 _default_value = std::move(val);
                 return *this;

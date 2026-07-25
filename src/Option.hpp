@@ -9,7 +9,7 @@
 
 namespace clap {
     /// A named argument that takes one typed value, e.g. -c 10 or --count=10.
-    /// CRTP: inherits from himself. this is used to return the derived type from 
+    /// CRTP: inherits from himself. this is used to return the derived type from
     /// methods like required() and default_value().
     template<typename T>
     class Option : public TypedArgument<T, Option<T>> {
@@ -21,7 +21,7 @@ namespace clap {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
             }
-            
+
             bool is_set() const noexcept override { return _value.has_value(); }
 
             /// Mark as required. Parsing fails if absent. Excludes default_value().
