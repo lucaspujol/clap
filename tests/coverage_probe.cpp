@@ -18,15 +18,13 @@
 #include "support/clap_header.hpp"
 #include <string>
 
-// One instantiation per type clap::TypeName declares a label for — that is the
-// set the library claims to support, so a red line here is a supported type
-// with no test behind it. Instantiating anything else would only invent gaps.
+// One instantiation per type clap::TypeName declares a label for.
 
 #define CLAP_PROBE_TYPES(X) \
     X(int) X(float) X(double) X(bool) X(std::string) X(std::filesystem::path)
 
-#define CLAP_PROBE_INSTANTIATE(T)     \
-    template class clap::Option<T>;   \
+#define CLAP_PROBE_INSTANTIATE(T)       \
+    template class clap::Option<T>;     \
     template class clap::Positional<T>; \
     template class clap::ValueList<T>;
 
