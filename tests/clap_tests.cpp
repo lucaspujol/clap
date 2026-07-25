@@ -92,6 +92,7 @@ struct Flags        : StandardApp {};
 struct LongOptions  : StandardApp {};
 struct ShortOptions : StandardApp {};
 struct Clusters     : StandardApp {};
+struct Env          : StandardApp {};
 struct Positionals  : StandardApp {};
 struct MultiOptions : StandardApp {};
 struct Variadic     : StandardApp {};
@@ -207,6 +208,44 @@ TEST_F(ShortOptions, AttachedNegativeValue) {
     Argv a{"prog", "-c-5"};
     expect_ok(app, a);
     EXPECT_EQ(count.get(), -5);
+}
+
+// =============================================================================
+// Env: testing env fallback feature.
+// =============================================================================
+
+TEST_F(Env, EnvFallbackUsedWhenAbsent) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
+    setenv("TEST_COUNT", "42", 1);
+    Argv a{"prog"};
+    expect_ok(app, a);
+    EXPECT_EQ(count.get(), 42);
+}
+
+TEST_F(Env, EnvFallbackOverriddenWhenPresent) {
+    clap::App app{"prog", "d"};
+    auto &count = app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
+    setenv("TEST_COUNT", "42", 1);
+    Argv a{"prog", "-c", "10"};
+    expect_ok(app, a);
+    EXPECT_EQ(count.get(), 10);
+}
+
+TEST_F(Env, EnvFallbackInvalidValueThrows) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
+    setenv("TEST_COUNT", "notanumber", 1);
+    Argv a{"prog"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Env, EnvKeyNotSet) {
+    clap::App app{"prog", "d"};
+    auto& v = app.option<int>("-c,--count", "count").from_env("NOT_SET");
+    Argv a{"prog"};
+    expect_ok(app, a);
+    EXPECT_THROW(v.get(), clap::MissingValue);
 }
 
 // =============================================================================
@@ -752,6 +791,12 @@ TEST_F(Usage, HelpAnnotatesDefault) {
     clap::App app{"prog", "d"};
     app.option<int>("-c,--count", "count").default_value(10);
     EXPECT_NE(app.help().find("(default: 10)"), std::string::npos);
+}
+
+TEST_F(Usage, HelpAnnotatesEnvFallback) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
+    EXPECT_NE(app.help().find("(env: TEST_COUNT)"), std::string::npos);
 }
 
 // =============================================================================
