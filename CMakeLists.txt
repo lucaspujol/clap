@@ -15,7 +15,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 file(GLOB EXAMPLE_DIRS LIST_DIRECTORIES true ${CMAKE_CURRENT_SOURCE_DIR}/examples/*)
 foreach(example_dir ${EXAMPLE_DIRS})
     # An example carrying its own CMakeLists.txt is a standalone project
-    # (e.g. fetchcontent/) — it configures itself, skip it here.
+    # (e.g. fetchcontent/): it configures itself, skip it here.
     if(IS_DIRECTORY ${example_dir} AND NOT EXISTS ${example_dir}/CMakeLists.txt)
         file(GLOB example_srcs CONFIGURE_DEPENDS ${example_dir}/*.cpp)
         if(example_srcs)
@@ -35,13 +35,22 @@ option(CLAP_COVERAGE "Build tests with coverage instrumentation" OFF)
 
 if(CLAP_BUILD_TESTS)
     find_package(GTest REQUIRED)
-    add_executable(clap_tests tests/clap_tests.cpp)
+    # One file per area (see tests/README.md); globbed so adding one needs no
+    # build change. coverage_probe.cpp is added below, coverage builds only.
+    file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
+    list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_probe.cpp)
+    add_executable(clap_tests ${TEST_SOURCES})
+    target_include_directories(clap_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/tests)
     target_link_libraries(clap_tests PRIVATE clap GTest::gtest GTest::gtest_main)
     target_compile_options(clap_tests PRIVATE -Wall -Wextra)
 
     if(CLAP_COVERAGE)
         target_compile_options(clap_tests PRIVATE --coverage -O0 -g)
         target_link_options(clap_tests PRIVATE --coverage)
+
+        target_sources(clap_tests PRIVATE tests/coverage_probe.cpp)
+        set_source_files_properties(tests/coverage_probe.cpp
+            PROPERTIES COMPILE_OPTIONS -fkeep-inline-functions)
     endif()
 
     enable_testing()
