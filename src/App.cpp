@@ -174,6 +174,7 @@ bool clap::App::parse(int argc, char **argv) {
         return false;
     }
     _error.clear();
+    _error_kind = clap::ErrorKind::OK;
     return true;
 }
 
