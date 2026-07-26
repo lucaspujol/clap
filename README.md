@@ -126,6 +126,19 @@ int n = count.get();        // options return the parsed value
 
 > Note: you can do `app.option<bool>`, but c'mon, use a flag.
 
+A flag also remembers how many times it was passed, so the classic `-v -vv -vvv`
+verbosity ladder is one call, no counting on your side:
+
+```cpp
+switch (verbose.count()) {    // 0 when absent, 3 for -vvv
+    case 0:  log_level = Error;   break;
+    case 1:  log_level = Warn;    break;
+    default: log_level = Debug;   break;
+}
+```
+
+Discarded occurrences (`-/v`, below) don't count.
+
 `.default_value(10)` fills in when the flag is absent. If the fallback depends
 on something only known at runtime, drop the default and read it with
 `.get_or(fallback)` (ex, random seed, or value dependant on another argument).
@@ -197,6 +210,26 @@ app.positional<std::string>("mode", "run mode").choices({"fast", "safe"});
 app.variadic<int>("ports", "ports to bind").range(1, 65535);
 ```
 
+### Values from the environment
+
+An option can name an environment variable to fall back on
+(`examples/env_var`):
+
+```cpp
+app.option<int>("-p,--port", "port to listen on")
+   .from_env("PORT")
+   .default_value(8080);
+```
+
+Precedence is **argv > env > `default_value()` > unset**.
+
+The env value parses and validates like any other, `.choices()` and `.range()`
+included. `PORT=nope` is an `InvalidValue` that names the variable, so you don't
+go hunting through argv for a `-p` you never passed.
+
+It resolves after argv and before the required check, so the environment can
+satisfy a `.required()` option. Options only, not positionals or lists.
+
 ### Syntax clap understands
 
 Short flags cluster (`-vf`) and take attached values (`-c10`). Long options
@@ -257,6 +290,18 @@ if (!app.parse(argc, argv)) {
 
 `app.error_kind()` gives the category to branch on (`UnknownArgument`,
 `MissingValue`, `InvalidValue`, ...).
+
+A typo'd argument close to a registered one gets a suggestion for free:
+
+```
+./prog --forec
+Error: Unknown argument: --forec
+        did you mean '--force'?
+```
+
+Edit distance with transpositions, so `forec` costs one edit like a dropped
+letter would. One edit tolerated per three characters, and names under three
+characters never match: nothing close enough, no suggestion.
 
 Misconfiguring the parser is the exception: duplicate names and the like throw a
 `ConfigError` at registration, since that's your bug, not the user's input.
