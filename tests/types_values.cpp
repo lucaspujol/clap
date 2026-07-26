@@ -43,9 +43,14 @@ TEST_F(Values, LocaleIndependantParsing) {
         GTEST_SKIP() << "fr_FR.UTF-8 locale not installed";
     }
     clap::App app{"prog", "d"};
-    app.option<float>("-f", "float");
+    app.option<double>("-f", "double");
     Argv a{"prog", "-f", "1,5"};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Values, FloatAndDoubleDifferOnlyInRange) {
+    EXPECT_THROW(clap::ParseValue<float>::parse("1e40"), clap::ParseError);
+    EXPECT_DOUBLE_EQ(clap::ParseValue<double>::parse("1e40"), 1e40);
 }
 
 TEST_F(Values, FilePathOptionAcceptsSpaces) {
