@@ -7,6 +7,20 @@
 
 struct Errors : StandardApp {};
 
+// --- no error is a state of its own -------------------------------------------
+
+TEST_F(Errors, ErrorKindIsOkBeforeParse) {
+    EXPECT_EQ(app.error_kind(), clap::ErrorKind::OK);
+    EXPECT_TRUE(app.error().empty());
+}
+
+TEST_F(Errors, ErrorKindResetsAfterAFailedParseIsFollowedByAGoodOne) {
+    Argv bad{"prog", "--nope"};
+    expect_error(app, bad, clap::ErrorKind::UnknownArgument);
+    Argv good{"prog", "-v"};
+    expect_ok(app, good);
+}
+
 TEST_F(Errors, UnknownLongOption) {
     Argv a{"prog", "--nope"};
     expect_error(app, a, clap::ErrorKind::UnknownArgument);
