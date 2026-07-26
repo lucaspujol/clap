@@ -17,6 +17,8 @@ namespace clap {
         InvalidValue,
         /// A required argument was absent.
         MissingRequiredValue,
+        /// default: no error. App::parse() returns true and App::error() is empty.
+        OK,
     };
 
     /// Base of every clap error. Catch this to handle them all.
