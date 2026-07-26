@@ -195,3 +195,21 @@ TEST_F(Variadic, SecondVariadicRejected) {
     app.variadic<std::string>("files", "input files");
     EXPECT_THROW(app.variadic<std::string>("more", "nope"), clap::ConfigError);
 }
+
+TEST_F(Positionals, EmptyTokenIsAPositional) {
+    clap::App app{"prog", "d"};
+    auto& scene = app.positional<std::string>("scene", "scene file");
+    Argv a{"prog", ""};
+    expect_ok(app, a);
+    EXPECT_EQ(scene.get(), "");
+}
+
+// The first "--" switches to positional mode; a later one is just a value.
+TEST_F(Variadic, SecondDashDashIsCollectedLiterally) {
+    clap::App app{"prog", "d"};
+    auto& files = app.variadic<std::string>("files", "input files");
+    Argv a{"prog", "--", "a", "--"};
+    expect_ok(app, a);
+    ASSERT_EQ(files.get().size(), 2u);
+    EXPECT_EQ(files.get()[1], "--");
+}

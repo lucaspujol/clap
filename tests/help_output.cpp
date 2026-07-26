@@ -124,3 +124,10 @@ TEST_F(Usage, HelpAnnotatesEnvFallback) {
     app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
     EXPECT_NE(app.help().find("(env: TEST_COUNT)"), std::string::npos);
 }
+
+// primary_name(), used in usage() is the shortest registered name.
+TEST_F(Usage, UsageUsesShortestNameWhateverTheOrder) {
+    clap::App app{"prog", "d"};
+    app.option<int>("--count,-c", "count");
+    EXPECT_NE(app.usage().find("[-c <int>]"), std::string::npos);
+}

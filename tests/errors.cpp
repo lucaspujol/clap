@@ -78,3 +78,34 @@ TEST_F(Errors, PositionalWithCommaNameRejected) {
     clap::App app{"prog", "d"};
     EXPECT_THROW(app.positional<int>("a,b", "pos"), clap::ConfigError);
 }
+
+// --- suggestions: an unknown name close to a registered one -------------------
+
+TEST_F(Errors, UnknownArgumentSuggestsCloseName) {
+    Argv a{"prog", "--forec"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+    EXPECT_NE(app.error().find("did you mean '--force'?"), std::string::npos);
+}
+
+TEST_F(Errors, NoSuggestionWhenNothingIsClose) {
+    Argv a{"prog", "--wxyzabcdef"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+    EXPECT_EQ(app.error().find("did you mean"), std::string::npos);
+}
+
+TEST_F(Errors, NoSuggestionWhenEveryNameIsTooShort) {
+    // Names under three characters are never compared, so there is no
+    // candidate left to suggest at all.
+    clap::App app{"prog", "d"};
+    app.flag("-v", "v");
+    Argv a{"prog", "--verb"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+    EXPECT_EQ(app.error().find("did you mean"), std::string::npos);
+}
+
+// --- a bare "-" is a name nobody registered -----------------------------------
+
+TEST_F(Errors, BareDashIsUnknown) {
+    Argv a{"prog", "-"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+}

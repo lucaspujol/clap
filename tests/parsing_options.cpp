@@ -100,3 +100,11 @@ TEST_F(ShortOptions, AttachedNegativeValue) {
     expect_ok(app, a);
     EXPECT_EQ(count.get(), -5);
 }
+
+TEST_F(LongOptions, RequiredOptionSatisfied) {
+    clap::App app{"prog", "d"};
+    auto& count = app.option<int>("-c,--count", "count").required();
+    Argv a{"prog", "--count=7"};
+    expect_ok(app, a);
+    EXPECT_EQ(count.get(), 7);
+}

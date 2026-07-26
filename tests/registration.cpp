@@ -36,3 +36,24 @@ TEST_F(Registration, EmptyNameRejected) {
     clap::App app{"prog", "d"};
     EXPECT_THROW(app.flag(",", "x"), clap::ConfigError);
 }
+
+TEST_F(Registration, BareDashNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("-", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, SingleCharLongNameRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("--x", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, ShortNameWithSpaceRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.flag("- ", "x"), clap::ConfigError);
+}
+
+TEST_F(Registration, LongNameAcceptsDashAndUnderscore) {
+    clap::App app{"prog", "d"};
+    EXPECT_NO_THROW(app.flag("--dry-run", "x"));
+    EXPECT_NO_THROW(app.flag("--dry_run", "y"));
+}

@@ -112,3 +112,10 @@ TEST_F(Clusters, DistinctFlagsInClusterCountSeparately) {
     EXPECT_EQ(verbose.count(), 2);
     EXPECT_EQ(force.count(), 1);
 }
+
+TEST_F(Flags, DiscardSlashLeavesFlagUnset) {
+    Argv a{"prog", "-/v"};
+    expect_ok(app, a);
+    EXPECT_FALSE(verbose);
+    EXPECT_EQ(verbose.count(), 0);
+}

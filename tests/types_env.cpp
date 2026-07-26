@@ -42,3 +42,14 @@ TEST_F(Env, EnvKeyNotSet) {
     expect_ok(app, a);
     EXPECT_THROW(v.get(), clap::MissingValue);
 }
+
+TEST_F(Env, FirstEnvErrorIsTheReportedOne) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").from_env("TEST_COUNT_A");
+    app.option<int>("-d,--depth", "depth").from_env("TEST_COUNT_B");
+    setenv("TEST_COUNT_A", "nope", 1);
+    setenv("TEST_COUNT_B", "alsonope", 1);
+    Argv a{"prog"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+    EXPECT_NE(app.error().find("'nope'"), std::string::npos);
+}

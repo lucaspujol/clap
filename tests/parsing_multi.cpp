@@ -32,3 +32,9 @@ TEST_F(MultiOptions, NotGreedy) {
     EXPECT_EQ(names.get()[0], "a");
     EXPECT_EQ(input.get(), "b");
 }
+
+TEST_F(MultiOptions, DiscardSlashValidatesButKeepsNothing) {
+    Argv a{"prog", "-/n", "a"};
+    expect_ok(app, a);
+    EXPECT_TRUE(names.get().empty());
+}
