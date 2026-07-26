@@ -62,6 +62,8 @@ namespace clap {
         InvalidValue,
         /// A required argument was absent.
         MissingRequiredValue,
+        /// default: no error. App::parse() returns true and App::error() is empty.
+        OK,
     };
 
     /// Base of every clap error. Catch this to handle them all.
@@ -847,7 +849,8 @@ namespace clap {
 
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
-            /// Which error parse() recorded. Precondition: parse() returned false.
+            /// Which error parse() recorded. ErrorKind::OK before parse() runs and
+            /// after a parse that succeeded.
             ErrorKind error_kind() const noexcept { return _error_kind; }
 
         private:
@@ -857,7 +860,7 @@ namespace clap {
             std::vector<std::unique_ptr<Argument>> _positionals;
             size_t _positional_idx = 0;
             std::string _error;
-            ErrorKind _error_kind{};
+            ErrorKind _error_kind{ErrorKind::OK};
             bool _positional_mode = false;
 
             void add_argument(std::unique_ptr<Argument> arg);
@@ -1208,6 +1211,7 @@ bool clap::App::parse(int argc, char **argv) {
         return false;
     }
     _error.clear();
+    _error_kind = clap::ErrorKind::OK;
     return true;
 }
 
