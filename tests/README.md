@@ -12,6 +12,7 @@ whose subject your change is about:
 | `parsing_positionals.cpp` | positional slots, the variadic slot, positional ordering rules |
 | `parsing_multi.cpp` | repeatable options (`-n a -n b`) |
 | `types_values.cpp` | token → `T` conversion, supported types |
+| `types_matrix.cpp` | the behaviour every value type shares, run once per type |
 | `types_constraints.cpp` | `.choices()` and `.range()` |
 | `types_env.cpp` | `.from_env()` fallback |
 | `help_output.cpp` | the help flag, the usage line, help annotations |
@@ -39,6 +40,7 @@ TEST_F(Flags, Short) {
 ```
 
 - Always `TEST_F`, never `TEST` — GTest forbids mixing the two in one suite.
+  (`types_matrix.cpp` uses `TYPED_TEST`, which is `TEST_F` over a type list.)
 - `StandardApp` already has one argument of every kind: `app`, `help`,
   `verbose`, `force`, `count`, `names`, `input`. Use them directly.
 - Need a different setup? Declare a local `clap::App app{"prog", "d"}` at the
@@ -57,6 +59,7 @@ support/
   assertions.hpp     expect_ok / expect_error / expect_help
   standard_app.hpp   the StandardApp fixture
   clap_header.hpp    every test TU includes clap.hpp through here
+  custom_type.hpp    a user-defined value type, taught to clap the usual way
 clap_impl.cpp        the single TU that defines CLAP_IMPLEMENTATION
 coverage_probe.cpp   coverage builds only; see the file for why
 ```
@@ -73,3 +76,13 @@ tools/coverage.sh
 Watch **branch** and **function** coverage, not line coverage. Most of clap is
 inline or templated, and code that is never called is never emitted, so it does
 not appear in the line total at all.
+
+Function coverage counts one symbol per template member *per type*, so adding a
+type to `coverage_probe.cpp` without adding it to `types_matrix.cpp` shows up
+as a pile of dead members. Only add a type whose parsing genuinely differs:
+`float` behaves exactly like `double`, `uint16_t` like `unsigned`, and an extra
+instantiation of those measures nothing.
+
+Branch coverage excludes the edges the compiler generates for exception
+handling (`--exclude-throw-branches`); those are unreachable without forcing an
+allocation failure, and counting them buried the real number.
