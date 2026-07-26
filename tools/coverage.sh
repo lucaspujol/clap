@@ -21,7 +21,10 @@ cmake --build $BUILD --target clap_tests -j >/dev/null
 find $BUILD -name '*.gcda' -delete
 ./$BUILD/clap_tests
 
-gcovr -r . --filter 'include/' $BUILD --json $TRACE >/dev/null
+gcovr -r . --filter 'include/' $BUILD \
+    --exclude-throw-branches          \
+    --exclude-unreachable-branches    \
+    --json $TRACE >/dev/null
 
 gcovr -a $TRACE --csv | awk -F, 'NR==2 {
     printf "\n[RESULT]  line %5.1f%% (%d/%d)   branch %5.1f%% (%d/%d)   func %5.1f%% (%d/%d)\n\n",
