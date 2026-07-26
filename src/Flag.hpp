@@ -27,6 +27,8 @@ namespace clap {
             bool is_set() const noexcept override { return _value; }
             bool takes_value() const noexcept override { return false; }
 
+            /// How many times the flag was set. 0 when absent, 3 for -vvv.
+            /// Discarded occurrences (-/v) don't count.
             int count() const noexcept { return _count; }
 
         private:
