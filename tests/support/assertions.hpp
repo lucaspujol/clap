@@ -11,6 +11,7 @@
 // Parse and assert success (the program should carry on).
 inline void expect_ok(clap::App& app, Argv& a) {
     EXPECT_TRUE(app.parse(a.argc(), a.argv())) << app.error();
+    EXPECT_EQ(app.error_kind(), clap::ErrorKind::OK);
 }
 
 // Parse and assert it failed with a specific ErrorKind.

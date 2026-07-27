@@ -117,7 +117,8 @@ namespace clap {
 
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
-            /// Which error parse() recorded. Precondition: parse() returned false.
+            /// Which error parse() recorded. ErrorKind::OK before parse() runs and
+            /// after a parse that succeeded.
             ErrorKind error_kind() const noexcept { return _error_kind; }
 
         private:
@@ -127,7 +128,7 @@ namespace clap {
             std::vector<std::unique_ptr<Argument>> _positionals;
             size_t _positional_idx = 0;
             std::string _error;
-            ErrorKind _error_kind{};
+            ErrorKind _error_kind{ErrorKind::OK};
             bool _positional_mode = false;
 
             void add_argument(std::unique_ptr<Argument> arg);
