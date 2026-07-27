@@ -25,4 +25,4 @@ FetchContent_Declare(clap
 FetchContent_MakeAvailable(clap)
 
 add_executable(fetchcontent main.cpp)
-target_link_libraries(fetchcontent PRIVATE clap)   # puts clap.hpp on the include path
+target_link_libraries(fetchcontent PRIVATE clap::clap)   # puts clap.hpp on the include path

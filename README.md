@@ -58,12 +58,31 @@ FetchContent_Declare(clap
   GIT_TAG main)
 FetchContent_MakeAvailable(clap)
 
-target_link_libraries(your_app PRIVATE clap)
+target_link_libraries(your_app PRIVATE clap::clap)
 ```
 
-Linking `clap` puts the header on your include path. You still define
+Linking `clap::clap` puts the header on your include path. You still define
 `CLAP_IMPLEMENTATION` in one `.cpp` file. This isnt the most efficient
 way to include clap on your project but hey, you do you x)
+
+### Option 3: install it, then find_package
+
+```sh
+cmake -S . -B build
+cmake --install build --prefix /usr/local
+```
+
+That installs `clap.hpp` plus a CMake package next to it:
+
+```cmake
+find_package(clap 0.5 REQUIRED)
+target_link_libraries(your_app PRIVATE clap::clap)
+```
+
+Same `clap::clap` target as FetchContent gives you, so downstream code doesn't
+care which path it came from. The installed version is the one stamped into the
+header at release; a build from `main` says `dev` and installs as `0.0.0`, which
+satisfies no version request — install from a release tag if you want one.
 
 ## Example
 
