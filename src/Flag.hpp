@@ -31,6 +31,11 @@ namespace clap {
             /// Discarded occurrences (-/v) don't count.
             int count() const noexcept { return _count; }
 
+            void reset() noexcept override {
+                _value = false;
+                _count = 0;
+            }
+
         private:
             bool _value = false;
             int _count = 0;

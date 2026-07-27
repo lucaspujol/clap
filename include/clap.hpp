@@ -324,6 +324,8 @@ namespace clap {
                 return false;
             }
 
+            virtual void reset() noexcept = 0;
+
         protected:
             void set_required() noexcept { _required = true; }
 
@@ -352,19 +354,20 @@ namespace clap {
 
 // ===== ArgCursor.hpp =====
 namespace clap {
-    /// Walks argv left to right, one token at a time (skips argv[0]).
+    /// Walks the argument list left to right, one token at a time
+    /// (skips args[0], the program name). Does not own the list.
     class ArgCursor {
         public:
-            ArgCursor(int argc, char** argv) noexcept
-                : _argc(argc), _argv(argv), _pos(1) {}
+            explicit ArgCursor(const std::vector<std::string>& args) noexcept
+                : _args(args), _pos(1) {}
 
-            bool has_next() const noexcept { return _pos < _argc; }
+            bool has_next() const noexcept { return _pos < _args.size(); }
 
             /// Next token without moving. Precondition: has_next().
-            std::string_view peek() const noexcept { return _argv[_pos]; }
+            std::string_view peek() const noexcept { return _args[_pos]; }
 
             /// Next token, then advance. Precondition: has_next().
-            std::string_view next() noexcept { return _argv[_pos++]; }
+            std::string_view next() noexcept { return _args[_pos++]; }
 
             /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
@@ -372,9 +375,8 @@ namespace clap {
             }
 
         private:
-            int _argc;
-            char** _argv;
-            int _pos;
+            const std::vector<std::string>& _args;
+            size_t _pos;
     };
 }
 
@@ -560,6 +562,11 @@ namespace clap {
             /// Discarded occurrences (-/v) don't count.
             int count() const noexcept { return _count; }
 
+            void reset() noexcept override {
+                _value = false;
+                _count = 0;
+            }
+
         private:
             bool _value = false;
             int _count = 0;
@@ -651,6 +658,8 @@ namespace clap {
                 return fallback;
             }
 
+            void reset() noexcept override { _value.reset(); }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
@@ -719,6 +728,8 @@ namespace clap {
             return _values;
         }
 
+        void reset() noexcept override { _values.clear(); }
+
     private:
         std::vector<T> _values;
         std::vector<T> _default_values;
@@ -766,6 +777,8 @@ namespace clap {
                     return _default_value.value();
                 throw clap::MissingValue(std::string(this->names()));
             }
+
+            void reset() noexcept override { _value.reset(); }
 
         private:
             std::optional<T> _value;
@@ -901,7 +914,9 @@ namespace clap {
                 return ref;
             }
 
-            /// Parse argv. Never throws on bad input; returns true on success,
+            /// Parse the argument list. args[0] is the program name and is
+            /// skipped, exactly as argv[0] is.
+            /// Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
             /// every value it can regardless. Registration still throws ConfigError.
             ///
@@ -910,7 +925,17 @@ namespace clap {
             ///   even ones that look like flags.
             /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
             ///   validates the argument but discards its value, leaving it unset.
+            bool parse(const std::vector<std::string>& args);
+
+            /// Same, from what main() receives. Copies argv into a vector and
+            /// calls the overload above.
             bool parse(int argc, char **argv);
+
+            /// called by parse on entry. prevents weird/stale state when calling parse
+            /// multiple times on the same app. We dont prevent re-entry to let the user
+            /// keep control of his app state.
+            void reset() noexcept;
+
             /// Full help message.
             std::string help() const;
             /// One-line usage summary string.
@@ -1238,7 +1263,12 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
 }
 
 bool clap::App::parse(int argc, char **argv) {
-    ArgCursor cursor(argc, argv);
+    return parse(std::vector<std::string>(argv, argv + argc));
+}
+
+bool clap::App::parse(const std::vector<std::string>& args) {
+    reset();
+    ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
 
     while (cursor.has_next()) {
@@ -1282,6 +1312,15 @@ bool clap::App::parse(int argc, char **argv) {
     _error.clear();
     _error_kind = clap::ErrorKind::OK;
     return true;
+}
+
+void clap::App::reset() noexcept {
+    _positional_idx = 0;
+    _positional_mode = false;
+    _error.clear();
+    _error_kind = clap::ErrorKind::OK;
+    for (auto& a : _arguments)   a->reset();
+    for (auto& p : _positionals) p->reset();
 }
 
 void clap::App::handle_positional(std::string_view token) {

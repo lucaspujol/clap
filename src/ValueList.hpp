@@ -66,6 +66,8 @@ namespace clap {
             return _values;
         }
 
+        void reset() noexcept override { _values.clear(); }
+
     private:
         std::vector<T> _values;
         std::vector<T> _default_values;

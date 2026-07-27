@@ -92,6 +92,8 @@ namespace clap {
                 return fallback;
             }
 
+            void reset() noexcept override { _value.reset(); }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;

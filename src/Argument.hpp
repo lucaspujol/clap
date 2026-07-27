@@ -67,6 +67,8 @@ namespace clap {
                 return false;
             }
 
+            virtual void reset() noexcept = 0;
+
         protected:
             void set_required() noexcept { _required = true; }
 
