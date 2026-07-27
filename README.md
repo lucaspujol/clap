@@ -305,3 +305,35 @@ characters never match: nothing close enough, no suggestion.
 
 Misconfiguring the parser is the exception: duplicate names and the like throw a
 `ConfigError` at registration, since that's your bug, not the user's input.
+
+### Subcommands are two Apps
+
+clap has no subcommand feature and isn't getting one. An `App` skips `args[0]`
+like `argv[0]`, so handing a second `App` `(argc - 1, argv + 1)` makes the
+subcommand name the new `argv[0]`, and that app sees only its own arguments
+(`examples/subcommands`):
+
+```cpp
+int cmd_commit(int argc, char** argv) {
+    clap::App sub("prog commit", "record changes");
+    auto& msg = sub.option<std::string>("-m,--message", "commit message").required();
+
+    if (!sub.parse(argc, argv)) { std::cerr << sub.error(); return 1; }
+    // ...
+}
+
+int main(int argc, char** argv) {
+    if (argc > 1 && std::string(argv[1]) == "commit")
+        return cmd_commit(argc - 1, argv + 1);      // "commit" becomes argv[0]
+    // ...
+}
+```
+
+Each subcommand gets its own help, usage line and errors. The top-level app
+parses what comes *before* the subcommand name, and lists them in its
+description — clap has nothing to print them for you.
+
+That's the whole trick, and its whole extent: clap doesn't know these apps are
+related. No shared arguments, no `prog help commit`, no suggestion on a
+misspelled subcommand. Fine for a few; for a real subcommand tree, use a parser
+built for it (CLI11, cxxopts).
