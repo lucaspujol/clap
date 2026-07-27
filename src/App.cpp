@@ -132,6 +132,7 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
 }
 
 bool clap::App::parse(int argc, char **argv) {
+    reset();
     ArgCursor cursor(argc, argv);
     std::optional<clap::ParseException> failure;
 
@@ -176,6 +177,15 @@ bool clap::App::parse(int argc, char **argv) {
     _error.clear();
     _error_kind = clap::ErrorKind::OK;
     return true;
+}
+
+void clap::App::reset() noexcept {
+    _positional_idx = 0;
+    _positional_mode = false;
+    _error.clear();
+    _error_kind = clap::ErrorKind::OK;
+    for (auto& a : _arguments)   a->reset();
+    for (auto& p : _positionals) p->reset();
 }
 
 void clap::App::handle_positional(std::string_view token) {

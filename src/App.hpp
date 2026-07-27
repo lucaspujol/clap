@@ -115,6 +115,12 @@ namespace clap {
             /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
             ///   validates the argument but discards its value, leaving it unset.
             bool parse(int argc, char **argv);
+
+            /// called by parse on entry. prevents weird/stale state when calling parse
+            /// multiple times on the same app. We dont prevent re-entry to let the user
+            /// keep control of his app state.
+            void reset() noexcept;
+
             /// Full help message.
             std::string help() const;
             /// One-line usage summary string.
