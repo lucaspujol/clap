@@ -31,7 +31,7 @@
 
 // list of types to instantiate
 #define CLAP_PROBE_TYPES(X) \
-    X(int) X(unsigned) X(double) X(bool) X(std::string) X(std::filesystem::path) X(Mode)
+    X(int) X(unsigned) X(char) X(double) X(bool) X(std::string) X(std::filesystem::path) X(Mode)
 
 // explicit instantiation of every template member
 #define CLAP_PROBE_INSTANTIATE(T)       \
