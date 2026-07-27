@@ -8,6 +8,31 @@
 
 #include <gtest/gtest.h>
 
+#include <string>
+#include <vector>
+
+// --- the parse(vector<string>) overload -------------------------------------
+// Same three assertions, spelled expect_ok(app, {"prog", "-v"}). Prefer these
+// in new tests; the Argv ones below still cover the char** entry point.
+
+inline void expect_ok(clap::App& app, const std::vector<std::string>& args) {
+    EXPECT_TRUE(app.parse(args)) << app.error();
+    EXPECT_EQ(app.error_kind(), clap::ErrorKind::OK);
+}
+
+inline void expect_error(clap::App& app, const std::vector<std::string>& args,
+                         clap::ErrorKind kind) {
+    ASSERT_FALSE(app.parse(args)) << "expected an error, got none";
+    EXPECT_EQ(app.error_kind(), kind);
+    EXPECT_FALSE(app.error().empty());
+}
+
+inline void expect_help(clap::App& app, clap::Flag& help,
+                        const std::vector<std::string>& args) {
+    app.parse(args);
+    EXPECT_TRUE(help) << "expected the help flag to be set";
+}
+
 // Parse and assert success (the program should carry on).
 inline void expect_ok(clap::App& app, Argv& a) {
     EXPECT_TRUE(app.parse(a.argc(), a.argv())) << app.error();
