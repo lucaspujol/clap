@@ -57,10 +57,12 @@ namespace clap {
             template<typename T>
             ValueList<T>& multi_option(std::string names, std::string description,
                                        std::source_location loc = std::source_location::current()) {
-                static_assert(MultiValue<T>,
-                    "clap: this option's value type cannot be parsed from a string. "
-                    "Give it operator>> or specialize clap::ParseValue<T> (and "
-                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                static_assert(OptionValue<T>,
+                    "clap: this option's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto opt = std::make_unique<ValueList<T>>(std::move(names), std::move(description));
                 opt->set_location(loc);
                 auto& ref = *opt;
@@ -73,10 +75,12 @@ namespace clap {
             template<typename T>
             ValueList<T>& variadic(std::string name, std::string description,
                                    std::source_location loc = std::source_location::current()) {
-                static_assert(MultiValue<T>,
-                    "clap: this positional's value type cannot be parsed from a string. "
-                    "Give it operator>> or specialize clap::ParseValue<T> (and "
-                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                static_assert(OptionValue<T>,
+                    "clap: this positional's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto pos = std::make_unique<ValueList<T>>(std::move(name), std::move(description));
                 pos->set_location(loc);
                 auto& ref = *pos;
