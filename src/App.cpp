@@ -132,8 +132,12 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
 }
 
 bool clap::App::parse(int argc, char **argv) {
+    return parse(std::vector<std::string>(argv, argv + argc));
+}
+
+bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
-    ArgCursor cursor(argc, argv);
+    ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
 
     while (cursor.has_next()) {

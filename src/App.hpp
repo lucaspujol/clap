@@ -105,7 +105,9 @@ namespace clap {
                 return ref;
             }
 
-            /// Parse argv. Never throws on bad input; returns true on success,
+            /// Parse the argument list. args[0] is the program name and is
+            /// skipped, exactly as argv[0] is.
+            /// Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
             /// every value it can regardless. Registration still throws ConfigError.
             ///
@@ -114,6 +116,10 @@ namespace clap {
             ///   even ones that look like flags.
             /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
             ///   validates the argument but discards its value, leaving it unset.
+            bool parse(const std::vector<std::string>& args);
+
+            /// Same, from what main() receives. Copies argv into a vector and
+            /// calls the overload above.
             bool parse(int argc, char **argv);
 
             /// called by parse on entry. prevents weird/stale state when calling parse
