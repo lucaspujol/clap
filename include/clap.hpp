@@ -975,25 +975,25 @@ namespace clap {
     };
 }
 
-#ifdef CLAP_IMPLEMENTATION
-
 #include <cctype>
 #include <iomanip>
 
 // ===== damerau_osa.cpp =====
 // Names shorter than this are not compared: at one or two characters every
 // name is a near-miss for every other, so the suggestion would be noise.
-static constexpr size_t MIN_SUGGEST_LEN = 3;
+namespace clap::detail {
+inline constexpr size_t MIN_SUGGEST_LEN = 3;
 
-static std::string_view strip_dashes(std::string_view s) {
+inline std::string_view strip_dashes(std::string_view s) {
     size_t i = 0;
     while (i < s.size() && s[i] == '-') i++;
     return s.substr(i);
 }
+}
 
 // levenshtein distance implementation. adds damerau transposition
 // so mistakes like (--forec instead of --force) gives a smaller cost
-int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
+inline int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
     std::vector<std::vector<int>> d(s1.size() + 1, std::vector<int>(s2.size() + 1));
     size_t i, j;
     int cost = 0;
@@ -1018,18 +1018,18 @@ int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
     return d[s1.size()][s2.size()];
 }
 
-std::string clap::detail::suggest(std::string_view unknown,
+inline std::string clap::detail::suggest(std::string_view unknown,
                                   const std::vector<std::string>& candidates) {
-    std::string input(strip_dashes(unknown));
-    if (input.size() < MIN_SUGGEST_LEN)
+    std::string input(clap::detail::strip_dashes(unknown));
+    if (input.size() < clap::detail::MIN_SUGGEST_LEN)
         return "";
 
     const std::string* best = nullptr;
     int best_dist = 0;
 
     for (const std::string& candidate : candidates) {
-        std::string name(strip_dashes(candidate));
-        if (name.size() < MIN_SUGGEST_LEN)
+        std::string name(clap::detail::strip_dashes(candidate));
+        if (name.size() < clap::detail::MIN_SUGGEST_LEN)
             continue;
         int dist = clap::detail::damerau_osa(input, name);
         if (!best || dist < best_dist) {
@@ -1043,14 +1043,14 @@ std::string clap::detail::suggest(std::string_view unknown,
 
     // One edit tolerated per three characters of the longer name, so short
     // names stay strict and long ones do not demand a perfect guess.
-    size_t len = std::max(input.size(), strip_dashes(*best).size());
+    size_t len = std::max(input.size(), clap::detail::strip_dashes(*best).size());
     int max_dist = std::max(static_cast<int>(len) / 3, 1);
 
     return best_dist <= max_dist ? *best : "";
 }
 
 // ===== HelpFormatter.cpp =====
-std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
+inline std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
         std::string tail = arg.is_multi() ? "..." : "";
@@ -1064,20 +1064,20 @@ std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool pos
     return arg.is_required() ? core + tail : "[" + core + "]" + tail;
 }
 
-std::string clap::HelpFormatter::name_col(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::name_col(const clap::Argument& arg) const {
     std::string s = "  " + std::string(arg.names());
     if (arg.is_multi())
         s += "...";
     return s;
 }
 
-std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
     if (arg.type_name().empty())
         return "";
     return "<" + std::string(arg.type_name()) + ">";
 }
 
-std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
     std::string s;
     if (arg.is_required())
         s += " (required)";
@@ -1088,7 +1088,7 @@ std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
     return s;
 }
 
-size_t clap::HelpFormatter::name_width() const {
+inline size_t clap::HelpFormatter::name_width() const {
     size_t max_w = 0;
     for (const auto& a : _options)
         max_w = std::max(max_w, name_col(*a).size());
@@ -1097,7 +1097,7 @@ size_t clap::HelpFormatter::name_width() const {
     return max_w + 2;
 }
 
-size_t clap::HelpFormatter::type_width() const {
+inline size_t clap::HelpFormatter::type_width() const {
     size_t max_w = 0;
     for (const auto& a : _options)
         max_w = std::max(max_w, type_col(*a).size());
@@ -1106,7 +1106,7 @@ size_t clap::HelpFormatter::type_width() const {
     return max_w + 2;
 }
 
-std::string clap::HelpFormatter::usage() const {
+inline std::string clap::HelpFormatter::usage() const {
     std::ostringstream oss;
     oss << "Usage: " << _name;
     for (const auto& a : _options)
@@ -1116,7 +1116,7 @@ std::string clap::HelpFormatter::usage() const {
     return oss.str();
 }
 
-std::string clap::HelpFormatter::help() const {
+inline std::string clap::HelpFormatter::help() const {
     std::ostringstream oss;
     oss << usage() << "\n\n" << _description << "\n";
 
@@ -1140,8 +1140,8 @@ std::string clap::HelpFormatter::help() const {
 }
 
 // ===== App.cpp =====
-namespace {
-    bool is_long_body(std::string_view body) {
+namespace clap::detail {
+    inline bool is_long_body(std::string_view body) {
         if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
             return false;
         for (char c : body)
@@ -1154,7 +1154,7 @@ namespace {
     // -f (single dash, single char)
     // --flag (double dash, long)
     // Anything else -- --f, spaces, --- is out.
-    bool valid_option_name(std::string_view name) {
+    inline bool valid_option_name(std::string_view name) {
         if (name.size() < 2 || name[0] != '-')
             return false;
         if (name[1] == '-') {              // double dash: needs a long body
@@ -1168,16 +1168,16 @@ namespace {
     }
 }
 
-clap::App::App(std::string name, std::string description)
+inline clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
 }
 
-void clap::App::add_argument(std::unique_ptr<Argument> arg) {
+inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
         throw clap::ConfigError(arg->location(),
             "argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
-        if (!valid_option_name(n))
+        if (!clap::detail::valid_option_name(n))
             throw clap::ConfigError(arg->location(),
                 "invalid option name '" + n + "' (expected -f or --flag)");
         for (const auto& existing : _arguments)
@@ -1188,7 +1188,7 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
-void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
     const auto& names = pos->raw_names();
     if (names.size() != 1)
         throw clap::ConfigError(pos->location(),
@@ -1212,13 +1212,13 @@ void clap::App::add_positional(std::unique_ptr<Argument> pos) {
     _positionals.push_back(std::move(pos));
 }
 
-clap::Argument* clap::App::find_argument(std::string_view token) {
+inline clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
     return nullptr;
 }
 
-std::string clap::App::did_you_mean(std::string_view token) const {
+inline std::string clap::App::did_you_mean(std::string_view token) const {
     std::vector<std::string> candidates;
     for (const auto& arg : _arguments)
         for (const auto& name : arg->raw_names())
@@ -1228,20 +1228,20 @@ std::string clap::App::did_you_mean(std::string_view token) const {
     return match.empty() ? "" : "did you mean '" + match + "'?";
 }
 
-bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
+inline bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
     return str.size() >= prefix.size() &&
         str.compare(0, prefix.size(), prefix) == 0;
 }
 
-std::string clap::App::help() const {
+inline std::string clap::App::help() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).help();
 }
 
-std::string clap::App::usage() const {
+inline std::string clap::App::usage() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
-void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
+inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
     if (_positional_mode || !starts_with(token, "-")) {
         handle_positional(token);
         return;
@@ -1262,11 +1262,11 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
         parse_single(token, cursor, discard);
 }
 
-bool clap::App::parse(int argc, char **argv) {
+inline bool clap::App::parse(int argc, char **argv) {
     return parse(std::vector<std::string>(argv, argv + argc));
 }
 
-bool clap::App::parse(const std::vector<std::string>& args) {
+inline bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
     ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
@@ -1314,7 +1314,7 @@ bool clap::App::parse(const std::vector<std::string>& args) {
     return true;
 }
 
-void clap::App::reset() noexcept {
+inline void clap::App::reset() noexcept {
     _positional_idx = 0;
     _positional_mode = false;
     _error.clear();
@@ -1323,7 +1323,7 @@ void clap::App::reset() noexcept {
     for (auto& p : _positionals) p->reset();
 }
 
-void clap::App::handle_positional(std::string_view token) {
+inline void clap::App::handle_positional(std::string_view token) {
     if (_positional_idx >= _positionals.size())
         throw clap::UnknownArgument(std::string(token));
     auto& pos = _positionals[_positional_idx];
@@ -1333,7 +1333,7 @@ void clap::App::handle_positional(std::string_view token) {
 }
 
 // --option=value
-void clap::App::parse_long_equals(std::string_view token, bool discard) {
+inline void clap::App::parse_long_equals(std::string_view token, bool discard) {
     auto eq = token.find('=');
     auto arg_name  = token.substr(0, eq);
     auto arg_value = token.substr(eq + 1);
@@ -1346,7 +1346,7 @@ void clap::App::parse_long_equals(std::string_view token, bool discard) {
 }
 
 // short cluster: -vf, -c10, -c-5, -vc 10
-void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
+inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
     for (size_t j = 1; j < token.size(); ++j) {
         std::string short_name{'-', token[j]};
         auto *arg = find_argument(short_name);
@@ -1366,7 +1366,7 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, b
     }
 }
 
-void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
+inline void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
     auto *arg = find_argument(token);
     if (!arg)
         throw clap::UnknownArgument(std::string(token), did_you_mean(token));
@@ -1380,7 +1380,7 @@ void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool dis
     }
 }
 
-void clap::App::check_required() const {
+inline void clap::App::check_required() const {
     for (const auto& arg : _arguments)
         if (arg->is_required() && !arg->is_set())
             throw clap::MissingRequiredArgument(std::string(arg->names()));
@@ -1388,5 +1388,3 @@ void clap::App::check_required() const {
         if (pos->is_required() && !pos->is_set())
             throw clap::MissingRequiredArgument(std::string(pos->names()));
 }
-
-#endif // CLAP_IMPLEMENTATION
