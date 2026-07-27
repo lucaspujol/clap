@@ -18,6 +18,7 @@ HEADER_ORDER = [
     "ClapExceptions.hpp",
     "damerau_osa.hpp",
     "TypeNames.hpp",
+    "Concepts.hpp",
     "Argument.hpp",
     "ArgCursor.hpp",
     "ParseValue.hpp",
