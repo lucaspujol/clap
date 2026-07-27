@@ -207,6 +207,28 @@ TYPED_TEST(ValueTypes, OptionRequiredExcludesDefault) {
     EXPECT_THROW(other.required(), clap::ConfigError);
 }
 
+TYPED_TEST(ValueTypes, MultiOptionRequiredExcludesDefault) {
+    using S = Sample<TypeParam>;
+    auto& opt = this->app.template multi_option<TypeParam>("-x,--xx", "x").required();
+    EXPECT_THROW(opt.default_value({S::a()}), clap::ConfigError);
+
+    auto& other = this->app.template multi_option<TypeParam>("-y,--yy", "y")
+                      .default_value({S::a()});
+    EXPECT_THROW(other.required(), clap::ConfigError);
+}
+
+TYPED_TEST(ValueTypes, MultiOptionDefaultListIsUsedWhenAbsent) {
+    using S = Sample<TypeParam>;
+    auto& opt = this->app.template multi_option<TypeParam>("-x,--xx", "x")
+                    .default_value({S::a(), S::b()});
+    Argv a{"prog"};
+    expect_ok(this->app, a);
+    EXPECT_FALSE(opt.is_set());
+    ASSERT_EQ(opt.get().size(), 2u);
+    EXPECT_EQ(opt.get()[0], S::a());
+    EXPECT_EQ(opt.get()[1], S::b());
+}
+
 TYPED_TEST(ValueTypes, OptionRequiredMissingIsReported) {
     this->app.template option<TypeParam>("-x,--xx", "x").required();
     Argv a{"prog"};
