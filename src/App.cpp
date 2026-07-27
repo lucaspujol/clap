@@ -9,8 +9,8 @@
 #include <string_view>
 #include <vector>
 
-namespace {
-    bool is_long_body(std::string_view body) {
+namespace clap::detail {
+    inline bool is_long_body(std::string_view body) {
         if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
             return false;
         for (char c : body)
@@ -23,7 +23,7 @@ namespace {
     // -f (single dash, single char)
     // --flag (double dash, long)
     // Anything else -- --f, spaces, --- is out.
-    bool valid_option_name(std::string_view name) {
+    inline bool valid_option_name(std::string_view name) {
         if (name.size() < 2 || name[0] != '-')
             return false;
         if (name[1] == '-') {              // double dash: needs a long body
@@ -37,16 +37,16 @@ namespace {
     }
 }
 
-clap::App::App(std::string name, std::string description)
+inline clap::App::App(std::string name, std::string description)
     : _name(std::move(name)), _description(std::move(description)) {
 }
 
-void clap::App::add_argument(std::unique_ptr<Argument> arg) {
+inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
         throw clap::ConfigError(arg->location(),
             "argument registered with no valid name");
     for (const auto& n : arg->raw_names()) {
-        if (!valid_option_name(n))
+        if (!clap::detail::valid_option_name(n))
             throw clap::ConfigError(arg->location(),
                 "invalid option name '" + n + "' (expected -f or --flag)");
         for (const auto& existing : _arguments)
@@ -57,7 +57,7 @@ void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     _arguments.push_back(std::move(arg));
 }
 
-void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
     const auto& names = pos->raw_names();
     if (names.size() != 1)
         throw clap::ConfigError(pos->location(),
@@ -81,13 +81,13 @@ void clap::App::add_positional(std::unique_ptr<Argument> pos) {
     _positionals.push_back(std::move(pos));
 }
 
-clap::Argument* clap::App::find_argument(std::string_view token) {
+inline clap::Argument* clap::App::find_argument(std::string_view token) {
     for (auto& arg : _arguments)
         if (arg->matches(token)) return arg.get();
     return nullptr;
 }
 
-std::string clap::App::did_you_mean(std::string_view token) const {
+inline std::string clap::App::did_you_mean(std::string_view token) const {
     std::vector<std::string> candidates;
     for (const auto& arg : _arguments)
         for (const auto& name : arg->raw_names())
@@ -97,20 +97,20 @@ std::string clap::App::did_you_mean(std::string_view token) const {
     return match.empty() ? "" : "did you mean '" + match + "'?";
 }
 
-bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
+inline bool clap::App::starts_with(std::string_view str, std::string_view prefix) {
     return str.size() >= prefix.size() &&
         str.compare(0, prefix.size(), prefix) == 0;
 }
 
-std::string clap::App::help() const {
+inline std::string clap::App::help() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).help();
 }
 
-std::string clap::App::usage() const {
+inline std::string clap::App::usage() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
-void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
+inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
     if (_positional_mode || !starts_with(token, "-")) {
         handle_positional(token);
         return;
@@ -131,11 +131,11 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
         parse_single(token, cursor, discard);
 }
 
-bool clap::App::parse(int argc, char **argv) {
+inline bool clap::App::parse(int argc, char **argv) {
     return parse(std::vector<std::string>(argv, argv + argc));
 }
 
-bool clap::App::parse(const std::vector<std::string>& args) {
+inline bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
     ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
@@ -183,7 +183,7 @@ bool clap::App::parse(const std::vector<std::string>& args) {
     return true;
 }
 
-void clap::App::reset() noexcept {
+inline void clap::App::reset() noexcept {
     _positional_idx = 0;
     _positional_mode = false;
     _error.clear();
@@ -192,7 +192,7 @@ void clap::App::reset() noexcept {
     for (auto& p : _positionals) p->reset();
 }
 
-void clap::App::handle_positional(std::string_view token) {
+inline void clap::App::handle_positional(std::string_view token) {
     if (_positional_idx >= _positionals.size())
         throw clap::UnknownArgument(std::string(token));
     auto& pos = _positionals[_positional_idx];
@@ -202,7 +202,7 @@ void clap::App::handle_positional(std::string_view token) {
 }
 
 // --option=value
-void clap::App::parse_long_equals(std::string_view token, bool discard) {
+inline void clap::App::parse_long_equals(std::string_view token, bool discard) {
     auto eq = token.find('=');
     auto arg_name  = token.substr(0, eq);
     auto arg_value = token.substr(eq + 1);
@@ -215,7 +215,7 @@ void clap::App::parse_long_equals(std::string_view token, bool discard) {
 }
 
 // short cluster: -vf, -c10, -c-5, -vc 10
-void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
+inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, bool discard) {
     for (size_t j = 1; j < token.size(); ++j) {
         std::string short_name{'-', token[j]};
         auto *arg = find_argument(short_name);
@@ -235,7 +235,7 @@ void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cursor, b
     }
 }
 
-void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
+inline void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool discard) {
     auto *arg = find_argument(token);
     if (!arg)
         throw clap::UnknownArgument(std::string(token), did_you_mean(token));
@@ -249,7 +249,7 @@ void clap::App::parse_single(std::string_view token, ArgCursor& cursor, bool dis
     }
 }
 
-void clap::App::check_required() const {
+inline void clap::App::check_required() const {
     for (const auto& arg : _arguments)
         if (arg->is_required() && !arg->is_set())
             throw clap::MissingRequiredArgument(std::string(arg->names()));

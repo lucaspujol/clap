@@ -4,17 +4,19 @@
 
 // Names shorter than this are not compared: at one or two characters every
 // name is a near-miss for every other, so the suggestion would be noise.
-static constexpr size_t MIN_SUGGEST_LEN = 3;
+namespace clap::detail {
+inline constexpr size_t MIN_SUGGEST_LEN = 3;
 
-static std::string_view strip_dashes(std::string_view s) {
+inline std::string_view strip_dashes(std::string_view s) {
     size_t i = 0;
     while (i < s.size() && s[i] == '-') i++;
     return s.substr(i);
 }
+}
 
 // levenshtein distance implementation. adds damerau transposition
 // so mistakes like (--forec instead of --force) gives a smaller cost
-int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
+inline int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
     std::vector<std::vector<int>> d(s1.size() + 1, std::vector<int>(s2.size() + 1));
     size_t i, j;
     int cost = 0;
@@ -39,18 +41,18 @@ int clap::detail::damerau_osa(const std::string& s1, const std::string& s2) {
     return d[s1.size()][s2.size()];
 }
 
-std::string clap::detail::suggest(std::string_view unknown,
+inline std::string clap::detail::suggest(std::string_view unknown,
                                   const std::vector<std::string>& candidates) {
-    std::string input(strip_dashes(unknown));
-    if (input.size() < MIN_SUGGEST_LEN)
+    std::string input(clap::detail::strip_dashes(unknown));
+    if (input.size() < clap::detail::MIN_SUGGEST_LEN)
         return "";
 
     const std::string* best = nullptr;
     int best_dist = 0;
 
     for (const std::string& candidate : candidates) {
-        std::string name(strip_dashes(candidate));
-        if (name.size() < MIN_SUGGEST_LEN)
+        std::string name(clap::detail::strip_dashes(candidate));
+        if (name.size() < clap::detail::MIN_SUGGEST_LEN)
             continue;
         int dist = clap::detail::damerau_osa(input, name);
         if (!best || dist < best_dist) {
@@ -64,7 +66,7 @@ std::string clap::detail::suggest(std::string_view unknown,
 
     // One edit tolerated per three characters of the longer name, so short
     // names stay strict and long ones do not demand a perfect guess.
-    size_t len = std::max(input.size(), strip_dashes(*best).size());
+    size_t len = std::max(input.size(), clap::detail::strip_dashes(*best).size());
     int max_dist = std::max(static_cast<int>(len) / 3, 1);
 
     return best_dist <= max_dist ? *best : "";
