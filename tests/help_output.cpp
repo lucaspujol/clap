@@ -119,6 +119,19 @@ TEST_F(Usage, HelpAnnotatesDefault) {
     EXPECT_NE(app.help().find("(default: 10)"), std::string::npos);
 }
 
+TEST_F(Usage, HelpAnnotatesDefaultList) {
+    clap::App app{"prog", "d"};
+    app.multi_option<std::string>("-t,--tag", "tags").default_value({"a", "b"});
+    EXPECT_NE(app.help().find("(default: a,b)"), std::string::npos);
+}
+
+TEST_F(Usage, HelpAnnotatesRequiredOverDefaultOnAList) {
+    clap::App app{"prog", "d"};
+    app.multi_option<std::string>("-t,--tag", "tags").required();
+    EXPECT_NE(app.help().find("(required)"), std::string::npos);
+    EXPECT_EQ(app.help().find("(default:"), std::string::npos);
+}
+
 TEST_F(Usage, HelpAnnotatesEnvFallback) {
     clap::App app{"prog", "d"};
     app.option<int>("-c,--count", "count").from_env("TEST_COUNT");

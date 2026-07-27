@@ -255,11 +255,6 @@ namespace clap {
     template<typename T>
     concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
 
-    /// separated from OptionValue because multi-options don't have a default
-    /// value to print at the time of this comment. Might change it in the future.
-    template<typename T>
-    concept MultiValue = Parseable<T> && Named<T>;
-
     /// The full contract for a clap value type: parseable from a string, and
     /// printable via operator<< so its default value can appear in help output.
     template<typename T>
@@ -464,6 +459,10 @@ namespace clap {
             TypedArgument(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
+            /// every typed argument consumes a value token. (Flag doesn't, and
+            /// isn't typed.)
+            bool takes_value() const noexcept override { return true; }
+
             /// help label checks the choices first: <xml|json|yaml>, not <string>
             std::string_view type_name() const override {
                 if (!_choices_label.empty()) return _choices_label;
@@ -593,9 +592,6 @@ namespace clap {
                 return *this;
             }
 
-            /// option always takes a value, so this is true. (Flag overrides to false.)
-            bool takes_value() const noexcept override { return true; }
-
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
@@ -681,25 +677,51 @@ namespace clap {
         }
 
         bool is_set() const noexcept override { return !_values.empty(); }
-        bool takes_value() const noexcept override { return true; }
         bool is_multi() const noexcept override { return true; }
 
         /// Require at least one value. Parsing fails if none is given.
+        /// Excludes default_value().
         ValueList<T>& required() {
+            if (!_default_values.empty())
+                throw clap::ConfigError("cannot combine required() with default_value()");
             this->set_required();
             return *this;
         }
 
-        /// All collected values. Empty when nothing was given and not required;
-        /// throws MissingValue only if this list is required but stayed empty.
+        /// Set a fallback list used when no value is given. Excludes required().
+        /// An empty list is the same as no default: get() returns empty either way.
+        ValueList<T>& default_value(std::vector<T> values) {
+            if (this->is_required())
+                throw clap::ConfigError("cannot combine default_value() with required()");
+            _default_values = std::move(values);
+            return *this;
+        }
+
+        std::string default_str() const override {
+            if (_default_values.empty()) return "";
+            std::ostringstream oss;
+            for (size_t i = 0; i < _default_values.size(); ++i) {
+                if (i) oss << ',';
+                oss << _default_values[i];
+            }
+            return oss.str();
+        }
+
+        /// All collected values, else the default list. Empty when neither was
+        /// given and not required; throws MissingValue only if this list is
+        /// required but stayed empty.
         const std::vector<T>& get() const {
-            if (_values.empty() && this->is_required())
-                throw clap::MissingValue(std::string(this->names()));
+            if (_values.empty()) {
+                if (this->is_required())
+                    throw clap::MissingValue(std::string(this->names()));
+                return _default_values;
+            }
             return _values;
         }
 
     private:
         std::vector<T> _values;
+        std::vector<T> _default_values;
     };
 }
 
@@ -720,7 +742,6 @@ namespace clap {
             }
 
             bool is_set() const noexcept override { return _value.has_value(); }
-            bool takes_value() const noexcept override { return true; }
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 
@@ -832,10 +853,12 @@ namespace clap {
             template<typename T>
             ValueList<T>& multi_option(std::string names, std::string description,
                                        std::source_location loc = std::source_location::current()) {
-                static_assert(MultiValue<T>,
-                    "clap: this option's value type cannot be parsed from a string. "
-                    "Give it operator>> or specialize clap::ParseValue<T> (and "
-                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                static_assert(OptionValue<T>,
+                    "clap: this option's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto opt = std::make_unique<ValueList<T>>(std::move(names), std::move(description));
                 opt->set_location(loc);
                 auto& ref = *opt;
@@ -848,10 +871,12 @@ namespace clap {
             template<typename T>
             ValueList<T>& variadic(std::string name, std::string description,
                                    std::source_location loc = std::source_location::current()) {
-                static_assert(MultiValue<T>,
-                    "clap: this positional's value type cannot be parsed from a string. "
-                    "Give it operator>> or specialize clap::ParseValue<T> (and "
-                    "clap::TypeName<T> for its help label) -- see examples/custom_type.");
+                static_assert(OptionValue<T>,
+                    "clap: this positional's value type is not usable. clap needs to "
+                    "parse it from a string (give it operator>> or specialize "
+                    "clap::ParseValue<T>) and print its default (give it "
+                    "operator<<). Also specialize clap::TypeName<T> for its help "
+                    "label -- see examples/custom_type.");
                 auto pos = std::make_unique<ValueList<T>>(std::move(name), std::move(description));
                 pos->set_location(loc);
                 auto& ref = *pos;
