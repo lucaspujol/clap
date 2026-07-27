@@ -5,7 +5,7 @@
 #include <iomanip>
 #include <sstream>
 
-std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
+inline std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
         std::string tail = arg.is_multi() ? "..." : "";
@@ -19,20 +19,20 @@ std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool pos
     return arg.is_required() ? core + tail : "[" + core + "]" + tail;
 }
 
-std::string clap::HelpFormatter::name_col(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::name_col(const clap::Argument& arg) const {
     std::string s = "  " + std::string(arg.names());
     if (arg.is_multi())
         s += "...";
     return s;
 }
 
-std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::type_col(const clap::Argument& arg) const {
     if (arg.type_name().empty())
         return "";
     return "<" + std::string(arg.type_name()) + ">";
 }
 
-std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
     std::string s;
     if (arg.is_required())
         s += " (required)";
@@ -43,7 +43,7 @@ std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
     return s;
 }
 
-size_t clap::HelpFormatter::name_width() const {
+inline size_t clap::HelpFormatter::name_width() const {
     size_t max_w = 0;
     for (const auto& a : _options)
         max_w = std::max(max_w, name_col(*a).size());
@@ -52,7 +52,7 @@ size_t clap::HelpFormatter::name_width() const {
     return max_w + 2;
 }
 
-size_t clap::HelpFormatter::type_width() const {
+inline size_t clap::HelpFormatter::type_width() const {
     size_t max_w = 0;
     for (const auto& a : _options)
         max_w = std::max(max_w, type_col(*a).size());
@@ -61,7 +61,7 @@ size_t clap::HelpFormatter::type_width() const {
     return max_w + 2;
 }
 
-std::string clap::HelpFormatter::usage() const {
+inline std::string clap::HelpFormatter::usage() const {
     std::ostringstream oss;
     oss << "Usage: " << _name;
     for (const auto& a : _options)
@@ -71,7 +71,7 @@ std::string clap::HelpFormatter::usage() const {
     return oss.str();
 }
 
-std::string clap::HelpFormatter::help() const {
+inline std::string clap::HelpFormatter::help() const {
     std::ostringstream oss;
     oss << usage() << "\n\n" << _description << "\n";
 
