@@ -48,6 +48,8 @@ namespace clap {
                 throw clap::MissingValue(std::string(this->names()));
             }
 
+            void reset() noexcept override { _value.reset(); }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
