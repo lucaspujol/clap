@@ -18,21 +18,44 @@ jobs:
             || { echo "::error::include/clap.hpp is stale — rerun tools/build_single_header.py and commit"; exit 1; }
 
   build-test:
-    runs-on: ubuntu-latest
+    # For a header-only library the compiler is the platform: everything is
+    # templates compiled in the user's TU, so each toolchain is its own check.
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc
+            os: ubuntu-latest
+            cxx: g++
+          - name: linux-clang
+            os: ubuntu-latest
+            cxx: clang++
+          - name: macos-appleclang
+            os: macos-latest
+            cxx: clang++
+          - name: windows-msvc
+            os: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ clang libgtest-dev
 
+      # The one locale test skips itself where fr_FR.UTF-8 is missing, so only
+      # Linux bothers generating it.
       - name: Generate fr_FR locale
+        if: runner.os == 'Linux'
         run: sudo locale-gen fr_FR.UTF-8 && sudo update-locale
 
+      # macOS and Windows have no packaged GTest; CMake fetches it there.
       - name: Configure
-        run: cmake -S . -B build
+        run: cmake -S . -B build ${{ matrix.cxx && format('-DCMAKE_CXX_COMPILER={0}', matrix.cxx) || '' }}
 
       - name: Build
-        run: cmake --build build
+        run: cmake --build build --config Release
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure
+        run: ctest --test-dir build --build-config Release --output-on-failure
