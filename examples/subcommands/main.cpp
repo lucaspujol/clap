@@ -19,7 +19,6 @@
 // complex command line interfaces: it might lack important features, and your code
 // WILL become messy. If you absolutely need subcommands, consider using another 
 // library that is designed for that purpose, such as CLI11 or cxxopts.
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>

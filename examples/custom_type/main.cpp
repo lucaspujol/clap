@@ -3,7 +3,6 @@
 //   2. clap::ParseValue<Mode> -> how a string becomes a Mode
 //   3. operator<<(ostream, Mode) -> lets help render the default value
 // Try: ./custom_type -m safe   |   -m bogus   |   -h
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>

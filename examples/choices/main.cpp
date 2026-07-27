@@ -1,4 +1,3 @@
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>
