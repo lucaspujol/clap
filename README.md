@@ -33,21 +33,14 @@ Or track the dev version from `main`:
 curl -O https://raw.githubusercontent.com/lucaspujol/clap/main/include/clap.hpp
 ```
 
-In exactly one `.cpp` file, define `CLAP_IMPLEMENTATION` before including it:
-
-```cpp
-#define CLAP_IMPLEMENTATION
-#include "clap.hpp"
-```
-
-In every other file, include it without the define:
+Include it. That's it, in every file that needs it:
 
 ```cpp
 #include "clap.hpp"
 ```
 
-This `#define` approach is to mimic other single-header libs, like 
-STB and others. 
+No `#define`, no implementation TU: everything is `inline`. Older code that
+still defines `CLAP_IMPLEMENTATION` keeps working, the macro is just ignored.
 
 ### Option 2: CMake FetchContent
 
@@ -61,9 +54,8 @@ FetchContent_MakeAvailable(clap)
 target_link_libraries(your_app PRIVATE clap::clap)
 ```
 
-Linking `clap::clap` puts the header on your include path. You still define
-`CLAP_IMPLEMENTATION` in one `.cpp` file. This isnt the most efficient
-way to include clap on your project but hey, you do you x)
+Linking `clap::clap` puts the header on your include path. This isnt the most
+efficient way to include clap on your project but hey, you do you x)
 
 ### Option 3: install it, then find_package
 
@@ -87,7 +79,6 @@ satisfies no version request — install from a release tag if you want one.
 ## Example
 
 ```cpp
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>
