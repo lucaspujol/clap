@@ -3,6 +3,7 @@
 // env value is a parse error like any other.
 
 #include "support/assertions.hpp"
+#include "support/env.hpp"
 #include "support/standard_app.hpp"
 
 #include <cstdlib>

@@ -3,6 +3,7 @@
 
 #include "support/assertions.hpp"
 #include "support/custom_type.hpp"
+#include "support/env.hpp"
 
 #include <cstdlib>
 #include <filesystem>
