@@ -324,6 +324,8 @@ namespace clap {
                 return false;
             }
 
+            virtual void reset() noexcept = 0;
+
         protected:
             void set_required() noexcept { _required = true; }
 
@@ -560,6 +562,11 @@ namespace clap {
             /// Discarded occurrences (-/v) don't count.
             int count() const noexcept { return _count; }
 
+            void reset() noexcept override {
+                _value = false;
+                _count = 0;
+            }
+
         private:
             bool _value = false;
             int _count = 0;
@@ -651,6 +658,8 @@ namespace clap {
                 return fallback;
             }
 
+            void reset() noexcept override { _value.reset(); }
+
         private:
             std::optional<T> _value;
             std::optional<T> _default_value;
@@ -719,6 +728,8 @@ namespace clap {
             return _values;
         }
 
+        void reset() noexcept override { _values.clear(); }
+
     private:
         std::vector<T> _values;
         std::vector<T> _default_values;
@@ -766,6 +777,8 @@ namespace clap {
                     return _default_value.value();
                 throw clap::MissingValue(std::string(this->names()));
             }
+
+            void reset() noexcept override { _value.reset(); }
 
         private:
             std::optional<T> _value;
@@ -911,6 +924,12 @@ namespace clap {
             /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
             ///   validates the argument but discards its value, leaving it unset.
             bool parse(int argc, char **argv);
+
+            /// called by parse on entry. prevents weird/stale state when calling parse
+            /// multiple times on the same app. We dont prevent re-entry to let the user
+            /// keep control of his app state.
+            void reset() noexcept;
+
             /// Full help message.
             std::string help() const;
             /// One-line usage summary string.
@@ -1238,6 +1257,7 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
 }
 
 bool clap::App::parse(int argc, char **argv) {
+    reset();
     ArgCursor cursor(argc, argv);
     std::optional<clap::ParseException> failure;
 
@@ -1282,6 +1302,15 @@ bool clap::App::parse(int argc, char **argv) {
     _error.clear();
     _error_kind = clap::ErrorKind::OK;
     return true;
+}
+
+void clap::App::reset() noexcept {
+    _positional_idx = 0;
+    _positional_mode = false;
+    _error.clear();
+    _error_kind = clap::ErrorKind::OK;
+    for (auto& a : _arguments)   a->reset();
+    for (auto& p : _positionals) p->reset();
 }
 
 void clap::App::handle_positional(std::string_view token) {
