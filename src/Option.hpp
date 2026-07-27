@@ -33,9 +33,6 @@ namespace clap {
                 return *this;
             }
 
-            /// option always takes a value, so this is true. (Flag overrides to false.)
-            bool takes_value() const noexcept override { return true; }
-
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;

@@ -23,7 +23,6 @@ namespace clap {
             }
 
             bool is_set() const noexcept override { return _value.has_value(); }
-            bool takes_value() const noexcept override { return true; }
 
             bool is_required() const noexcept override { return !_default_value.has_value(); }
 

@@ -20,6 +20,10 @@ namespace clap {
             TypedArgument(std::string names, std::string description)
             : Argument(std::move(names), std::move(description)) {}
 
+            /// every typed argument consumes a value token. (Flag doesn't, and
+            /// isn't typed.)
+            bool takes_value() const noexcept override { return true; }
+
             /// help label checks the choices first: <xml|json|yaml>, not <string>
             std::string_view type_name() const override {
                 if (!_choices_label.empty()) return _choices_label;
