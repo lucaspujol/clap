@@ -60,7 +60,6 @@ support/
   standard_app.hpp   the StandardApp fixture
   clap_header.hpp    every test TU includes clap.hpp through here
   custom_type.hpp    a user-defined value type, taught to clap the usual way
-clap_impl.cpp        the single TU that defines CLAP_IMPLEMENTATION
 coverage_probe.cpp   coverage builds only; see the file for why
 ```
 

@@ -13,7 +13,6 @@
 //      compiled, so untested ones show up red.
 //
 // This file executes nothing.
-// CLAP_IMPLEMENTATION is deliberately NOT defined here.
 
 #include "support/clap_header.hpp"
 #include "support/custom_type.hpp"
