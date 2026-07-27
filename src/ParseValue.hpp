@@ -5,28 +5,13 @@
 #include <string>
 #include <string_view>
 #include <sstream>
-#include <istream>
-#include <ostream>
 #include <system_error>
 #include <type_traits>
 
 #include "ClapExceptions.hpp"
+#include "Concepts.hpp"
 
 namespace clap {
-    /// Satisfied when T can be read from an std::istream with operator>>.
-    template<typename T>
-    concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
-
-    /// Satisfied when T can be written to an std::ostream with operator<<.
-    template<typename T>
-    concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
-
-    /// Turns a string into a T. The customization point for value parsing:
-    /// specialize this for a type that operator>> cannot handle. See
-    /// examples/custom_type.
-    template<typename T>
-    struct ParseValue;
-
     /// Default parser for any type readable with operator>>.
     template<StreamExtractable T>
     struct ParseValue<T> {
@@ -75,15 +60,16 @@ namespace clap {
         }
     };
 
-    /// Satisfied when T has a usable ParseValue: either ParseValue<T> is
-    /// specialized, or T is stream-extractable via the default parser.
-    template<typename T>
-    concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
-
-    /// The full contract for a clap value type: parseable from a string, and
-    /// printable via operator<< so its default value can appear in help output.
-    template<typename T>
-    concept OptionValue = Parseable<T> && StreamInsertable<T>;
+    /// Parser for char: the token is a single character, not a number, so
+    /// `-c A` reads the letter A. signed/unsigned char keep the numeric path.
+    template<>
+    struct ParseValue<char> {
+        static char parse(std::string_view str) {
+            if (str.size() != 1)
+                throw ParseError("expected a single character");
+            return str[0];
+        }
+    };
 
     /// Parses value into T, turning any failure into an InvalidValue error.
     template<typename T>

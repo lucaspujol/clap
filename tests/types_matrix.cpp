@@ -29,13 +29,10 @@ struct Sample<int> {
     static int hi() { return 100; }
 };
 
-
-// TODO: give unsigned int its TypeNames specialisation 
-// src/TypeNames.hpp
 template<>
 struct Sample<unsigned> {
     static constexpr const char* name = "unsigned";
-    static constexpr const char* label = "unknown";
+    static constexpr const char* label = "uint";
     static constexpr const char* tok_a = "10";
     static constexpr const char* tok_b = "20";
     static constexpr const char* text_a = "10";
@@ -45,6 +42,22 @@ struct Sample<unsigned> {
     static unsigned b() { return 20u; }
     static unsigned lo() { return 0u; }
     static unsigned hi() { return 100u; }
+};
+
+// char is its own parsing path: one character, never a number.
+template<>
+struct Sample<char> {
+    static constexpr const char* name = "char";
+    static constexpr const char* label = "char";
+    static constexpr const char* tok_a = "a";
+    static constexpr const char* tok_b = "b";
+    static constexpr const char* text_a = "a";
+    static constexpr const char* bad = "ab";
+    static constexpr const char* outside = "z";
+    static char a() { return 'a'; }
+    static char b() { return 'b'; }
+    static char lo() { return 'a'; }
+    static char hi() { return 'c'; }
 };
 
 template<>
@@ -134,7 +147,7 @@ struct TypeNames {
 };
 
 typedef testing::Types<
-    int, unsigned, double,
+    int, unsigned, char, double,
     bool, std::string,
     std::filesystem::path,
     Mode>

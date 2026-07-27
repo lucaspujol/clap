@@ -23,9 +23,16 @@ std::ostream& operator<<(std::ostream& os, Mode m) {
 
 // how to parse it, so clap can turn a string into a Mode
 namespace clap {
+    // label shown in help output, e.g. <mode>
+    CLAP_TYPENAME(Mode, "mode")
+    // alternatively if you dont like macros, define like this:
+    /*
+
     template<> struct TypeName<Mode> {
         static constexpr std::string_view value = "mode";
     };
+
+    */
 
     template<> struct ParseValue<Mode> {
         static Mode parse(std::string_view s) {

@@ -5,6 +5,7 @@
 #include "Positional.hpp"
 #include "ValueList.hpp"
 #include "ClapExceptions.hpp"
+#include "Concepts.hpp"
 
 #include <string>
 #include <vector>
@@ -56,7 +57,7 @@ namespace clap {
             template<typename T>
             ValueList<T>& multi_option(std::string names, std::string description,
                                        std::source_location loc = std::source_location::current()) {
-                static_assert(Parseable<T>,
+                static_assert(MultiValue<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
@@ -72,7 +73,7 @@ namespace clap {
             template<typename T>
             ValueList<T>& variadic(std::string name, std::string description,
                                    std::source_location loc = std::source_location::current()) {
-                static_assert(Parseable<T>,
+                static_assert(MultiValue<T>,
                     "clap: this positional's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
