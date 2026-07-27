@@ -1,9 +1,8 @@
-// separator.cpp — shows the `--` separator: everything after it is a
+// separator.cpp: shows the `--` separator: everything after it is a
 // positional, even tokens that start with a dash. Try:
 //   ./separator a.txt b.txt c.txt
 //   ./separator --log -- -weird.txt --also-weird.txt normal.txt
 //   ./separator -- -- b.txt          (second `--` is just a positional)
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>

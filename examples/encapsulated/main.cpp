@@ -1,18 +1,99 @@
-// Wrap the App in your own class so all the parse/help/error plumbing lives in
-// Cli, and argument handling in main() collapses to a single guard line. The
-// program itself stays right here in main(), reading values off the Cli.
-#define CLAP_IMPLEMENTATION
-#include "Cli.hpp"
+// struct_args: defining your flags as a struct, JAI-style.
+// credits to tsoding for a recent video. I saw of parsing arguments
+// in a way I liked, so i tried replicating it with CLAP. no api changes,
+// just different way to abstract argument parsing
+//
+// in JAI, you would do something like this:
+//
+// Arguments :: struct {
+//     debug: bool;
+//     port: int;
+//     size: int;
+//     elevation: int;
+//     teams: []string;
+//     input: string;
+//     output: string;
+// }
+//
+// the names of the flags are inferred from the struct field names.
+// doable in C++26 with static reflection (P2996), not available to us here.
+// so the idea of this example: write the names by hand, keep the struct shape.
+// see the Args struct below. ofc, app is defined BEFORE the fields.
+//
+// in addition, to avoid verbosity in code, i added a config struct to snapshot
+// to plain values. this is optional, this just transforms args.port.get() into cfg.port
+//
+//   ./struct_args -p6767 -s10 -n TeamA -n TeamB -d arena.conf
+//
+// This is, as of now, my favorite way to encapsulate clap; slightly more verbose but also
+// more explicit and easier to read. I like the idea of having a single struct that
+// contains all the arguments, and then a snapshot to plain values. This is also more
+// flexible, as you can have multiple snapshots if you want to change the values at runtime.
+#include <string>
+#include "clap.hpp"
 
 #include <iostream>
 
-int main(int argc, char** argv) {
-    Cli cli;
-    if (auto exit_code = cli.parse(argc, argv))
-        return *exit_code;
+// ---- Pattern A: the schema struct ------------------------------------------
+struct Args {
+    clap::App app{"struct_args", "define your flags as a struct, JAI-style."};
 
-    std::cout << "input=" << cli.input() << std::endl;
-    std::cout << " count=" << cli.count() << std::endl;
-    std::cout << " verbose=" << (cli.verbose() ? "yes" : "no") << std::endl;
+    clap::Flag& debug = app.flag("-d,--debug", "enable debug logging");
+    clap::Option<int>& port = app.option<int>("-p,--port", "server port").default_value(8080);
+    clap::Option<int>& size = app.option<int>("-s,--size", "map size").required();
+    clap::Option<int>& elevation = app.option<int>("-e,--elevation", "elevation offset").default_value(0);
+    clap::ValueList<std::string>& teams = app.multi_option<std::string>("-n", "team names").required();
+    clap::Positional<std::string>& input = app.positional<std::string>("input", "input file");
+    clap::Option<std::string>& output = app.option<std::string>("-o,--output", "the output (default: <input>.out)");
+    clap::Flag& help = app.flag("-h,--help", "show this help message");
+
+    bool ok;
+    Args(int argc, char** argv) { ok = app.parse(argc, argv); }
+};
+
+// ---- Pattern B: snapshot to plain values -----------------------------------
+// this is just to have less verbose when getting the values
+struct Config {
+    bool debug;
+    int port;
+    int size;
+    int elevation;
+    std::vector<std::string> teams;
+    std::string input;
+    std::string output;
+};
+
+// gives a snapshot: rerun if values were subject to change
+// use get() / get_or() as you want,
+Config snapshot(const Args& a) {
+    return Config{
+        .debug     = a.debug,
+        .port      = a.port.get(),
+        .size      = a.size.get(),
+        .elevation = a.elevation.get(),
+        .teams     = a.teams.get(),
+        .input     = a.input.get(),
+        .output    = a.output.get_or(a.input.get() + ".out"),
+    };
+}
+
+int main(int argc, char** argv) {
+    Args args(argc, argv);
+    if (args.help) { std::cout << args.app.help(); return 0; }
+    if (!args.ok)  { std::cerr << args.app.error(); return 84; }
+
+    // Plain-value struct: args.port.get() becomes cfg.port.
+    Config cfg = snapshot(args);
+
+    std::cout << "debug:     " << (cfg.debug ? "on" : "off") << "\n";
+    std::cout << "port:      " << cfg.port << "\n";
+    std::cout << "size:      " << cfg.size << "\n";
+    std::cout << "elevation: " << cfg.elevation << "\n";
+    std::cout << "teams:     ";
+    for (const auto& team : cfg.teams)
+        std::cout << team << " ";
+    std::cout << "\n";
+    std::cout << "input:     " << cfg.input << "\n";
+    std::cout << "output:    " << cfg.output << "\n";
     return 0;
 }

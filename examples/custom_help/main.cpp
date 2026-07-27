@@ -1,7 +1,6 @@
-// Help is just a flag you register — name it whatever you like. Here -h is
+// Help is just a flag you register: name it whatever you like. Here -h is
 // free for your own use (host) and help lives on -?/--help.
 // Try: ./custom_help -h   (sets host)   |   ./custom_help '-?'   (shows help)
-#define CLAP_IMPLEMENTATION
 #include "clap.hpp"
 
 #include <iostream>

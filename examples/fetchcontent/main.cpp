@@ -1,4 +1,3 @@
-#define CLAP_IMPLEMENTATION   // exactly ONE .cpp file gets this line
 #include "clap.hpp"
 
 #include <iostream>

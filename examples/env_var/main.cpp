@@ -1,9 +1,3 @@
-#define CLAP_IMPLEMENTATION
-#include "clap.hpp"
-
-#include <iostream>
-#include <string>
-
 // a server that reads its port from the command line, from the environment,
 // or falls back to a built-in default:
 //
@@ -11,6 +5,11 @@
 //   PORT=9000 ./env_var              -> 9000   (the environment)
 //   PORT=9000 ./env_var -p 3000      -> 3000   (argv wins over the environment)
 //   PORT=nope ./env_var              -> error, PORT is not an int
+#include "clap.hpp"
+
+#include <iostream>
+#include <string>
+
 int main(int argc, char **argv) {
     clap::App app(argv[0], "showcase of the env var fallback.");
 
