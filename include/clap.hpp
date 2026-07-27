@@ -199,14 +199,71 @@ namespace clap {
 namespace clap {
     /// Label shown for a value type in help output, e.g. "<int>".
     /// Specialize for a custom type to give it a name.
-    template<typename T> struct TypeName              { static constexpr std::string_view value = "unknown"; };
+    template<typename T> struct TypeName;
 
-    template<> struct TypeName<int>                   { static constexpr std::string_view value = "int"; };
-    template<> struct TypeName<float>                 { static constexpr std::string_view value = "float"; };
-    template<> struct TypeName<double>                { static constexpr std::string_view value = "double"; };
-    template<> struct TypeName<bool>                  { static constexpr std::string_view value = "bool"; };
-    template<> struct TypeName<std::string>           { static constexpr std::string_view value = "string"; };
-    template<> struct TypeName<std::filesystem::path> { static constexpr std::string_view value = "path"; };
+    // macro to define all accepted types
+    #define CLAP_TYPENAME(T, S) \
+        template<> struct TypeName<T> { static constexpr std::string_view value = S; };
+
+    // Fundamental types only. 
+    // uint8_t is unsigned char, size_t is one of the unsigned types,
+    // so naming both collides.
+    CLAP_TYPENAME(char,                  "char")
+    CLAP_TYPENAME(signed char,           "int8")
+    CLAP_TYPENAME(unsigned char,         "uint8")
+    CLAP_TYPENAME(short,                 "short")
+    CLAP_TYPENAME(unsigned short,        "ushort")
+    CLAP_TYPENAME(int,                   "int")
+    CLAP_TYPENAME(unsigned,              "uint")
+    CLAP_TYPENAME(long,                  "long")
+    CLAP_TYPENAME(unsigned long,         "ulong")
+    CLAP_TYPENAME(long long,             "llong")
+    CLAP_TYPENAME(unsigned long long,    "ullong")
+    CLAP_TYPENAME(float,                 "float")
+    CLAP_TYPENAME(double,                "double")
+    CLAP_TYPENAME(bool,                  "bool")
+    CLAP_TYPENAME(std::string,           "string")
+    CLAP_TYPENAME(std::filesystem::path, "path")
+
+}
+
+// ===== Concepts.hpp =====
+namespace clap {
+    /// Satisfied when T can be read from an std::istream with operator>>.
+    template<typename T>
+    concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
+
+    /// Satisfied when T can be written to an std::ostream with operator<<.
+    template<typename T>
+    concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
+
+    /// Satisfied when T has a TypeName, so it has a label for help output.
+    template<typename T>
+    concept Named = requires { TypeName<T>::value; };
+
+    /// Turns a string into a T. The customization point for value parsing:
+    /// specialize this for a type that operator>> cannot handle. See
+    /// examples/custom_type.
+    /// Declared here so Parseable below can name it;
+    /// the default parser and the built-in specializations live in
+    /// ParseValue.hpp.
+    template<typename T>
+    struct ParseValue;
+
+    /// Satisfied when T has a usable ParseValue: either ParseValue<T> is
+    /// specialized, or T is stream-extractable via the default parser.
+    template<typename T>
+    concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
+
+    /// separated from OptionValue because multi-options don't have a default
+    /// value to print at the time of this comment. Might change it in the future.
+    template<typename T>
+    concept MultiValue = Parseable<T> && Named<T>;
+
+    /// The full contract for a clap value type: parseable from a string, and
+    /// printable via operator<< so its default value can appear in help output.
+    template<typename T>
+    concept OptionValue = Parseable<T> && StreamInsertable<T> && Named<T>;
 }
 
 // ===== Argument.hpp =====
@@ -328,20 +385,6 @@ namespace clap {
 
 // ===== ParseValue.hpp =====
 namespace clap {
-    /// Satisfied when T can be read from an std::istream with operator>>.
-    template<typename T>
-    concept StreamExtractable = requires(std::istream& is, T& v) { is >> v; };
-
-    /// Satisfied when T can be written to an std::ostream with operator<<.
-    template<typename T>
-    concept StreamInsertable = requires(std::ostream& os, const T& v) { os << v; };
-
-    /// Turns a string into a T. The customization point for value parsing:
-    /// specialize this for a type that operator>> cannot handle. See
-    /// examples/custom_type.
-    template<typename T>
-    struct ParseValue;
-
     /// Default parser for any type readable with operator>>.
     template<StreamExtractable T>
     struct ParseValue<T> {
@@ -390,15 +433,16 @@ namespace clap {
         }
     };
 
-    /// Satisfied when T has a usable ParseValue: either ParseValue<T> is
-    /// specialized, or T is stream-extractable via the default parser.
-    template<typename T>
-    concept Parseable = requires(std::string_view s) { ParseValue<T>::parse(s); };
-
-    /// The full contract for a clap value type: parseable from a string, and
-    /// printable via operator<< so its default value can appear in help output.
-    template<typename T>
-    concept OptionValue = Parseable<T> && StreamInsertable<T>;
+    /// Parser for char: the token is a single character, not a number, so
+    /// `-c A` reads the letter A. signed/unsigned char keep the numeric path.
+    template<>
+    struct ParseValue<char> {
+        static char parse(std::string_view str) {
+            if (str.size() != 1)
+                throw ParseError("expected a single character");
+            return str[0];
+        }
+    };
 
     /// Parses value into T, turning any failure into an InvalidValue error.
     template<typename T>
@@ -788,7 +832,7 @@ namespace clap {
             template<typename T>
             ValueList<T>& multi_option(std::string names, std::string description,
                                        std::source_location loc = std::source_location::current()) {
-                static_assert(Parseable<T>,
+                static_assert(MultiValue<T>,
                     "clap: this option's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
@@ -804,7 +848,7 @@ namespace clap {
             template<typename T>
             ValueList<T>& variadic(std::string name, std::string description,
                                    std::source_location loc = std::source_location::current()) {
-                static_assert(Parseable<T>,
+                static_assert(MultiValue<T>,
                     "clap: this positional's value type cannot be parsed from a string. "
                     "Give it operator>> or specialize clap::ParseValue<T> (and "
                     "clap::TypeName<T> for its help label) -- see examples/custom_type.");
