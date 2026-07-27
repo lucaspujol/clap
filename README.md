@@ -11,7 +11,8 @@ A lightweight, header-only C++ command line argument parser.
 
 ## Requirements
 
-C++20 or later.
+C++20 or later. CI builds and tests every commit on GCC and Clang (Linux),
+AppleClang (macOS) and MSVC (Windows).
 
 ## Install
 

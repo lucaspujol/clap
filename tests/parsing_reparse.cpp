@@ -5,6 +5,7 @@
 // wipes it.
 
 #include "support/assertions.hpp"
+#include "support/env.hpp"
 #include "support/standard_app.hpp"
 
 #include <cstdlib>
