@@ -1,18 +1,56 @@
 cmake_minimum_required(VERSION 3.16)
-project(clap LANGUAGES CXX)
+
+file(STRINGS ${CMAKE_CURRENT_LIST_DIR}/include/clap.hpp CLAP_VERSION_LINE
+     REGEX "^#define CLAP_VERSION ")
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" CLAP_VERSION "${CLAP_VERSION_LINE}")
+if(NOT CLAP_VERSION)
+    set(CLAP_VERSION 0.0.0)
+endif()
+
+project(clap VERSION ${CLAP_VERSION} LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- Library: header-only, INTERFACE target just carries the include dir ---
-add_library(clap INTERFACE)
-target_include_directories(clap INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+include(GNUInstallDirs)
 
-# Examples and tests are only for developing clap itself.
+add_library(clap INTERFACE)
+
+target_include_directories(clap INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
+
+add_library(clap::clap ALIAS clap)
+
+include(CMakePackageConfigHelpers)
+set(CLAP_CMAKE_DIR ${CMAKE_INSTALL_LIBDIR}/cmake/clap)
+
+install(TARGETS clap EXPORT clapTargets)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/clap.hpp
+        DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+install(EXPORT clapTargets
+        FILE clapTargets.cmake
+        NAMESPACE clap::
+        DESTINATION ${CLAP_CMAKE_DIR})
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/clapConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/clapConfig.cmake
+    INSTALL_DESTINATION ${CLAP_CMAKE_DIR})
+
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/clapConfigVersion.cmake
+    COMPATIBILITY SameMinorVersion
+    ARCH_INDEPENDENT)
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/clapConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/clapConfigVersion.cmake
+    DESTINATION ${CLAP_CMAKE_DIR})
+
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
-# Warning flags for everything built here. MSVC also needs /utf-8: sources
-# carry UTF-8 text and cl assumes the system codepage without it.
 if(MSVC)
     set(CLAP_WARNINGS /W4 /utf-8)
 else()
@@ -42,8 +80,6 @@ option(CLAP_BUILD_TESTS "Build tests" ON)
 option(CLAP_COVERAGE "Build tests with coverage instrumentation" OFF)
 
 if(CLAP_BUILD_TESTS)
-    # Packaged GTest where the platform has one (apt); otherwise fetch it, so
-    # macOS and Windows configure without a package manager step.
     find_package(GTest QUIET)
     if(NOT GTest_FOUND)
         include(FetchContent)
@@ -53,8 +89,6 @@ if(CLAP_BUILD_TESTS)
         set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
         FetchContent_MakeAvailable(googletest)
     endif()
-    # One file per area (see tests/README.md); globbed so adding one needs no
-    # build change. coverage_probe.cpp is added below, coverage builds only.
     file(GLOB TEST_SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp)
     list(REMOVE_ITEM TEST_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/tests/coverage_probe.cpp)
     add_executable(clap_tests ${TEST_SOURCES})
