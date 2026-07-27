@@ -354,19 +354,20 @@ namespace clap {
 
 // ===== ArgCursor.hpp =====
 namespace clap {
-    /// Walks argv left to right, one token at a time (skips argv[0]).
+    /// Walks the argument list left to right, one token at a time
+    /// (skips args[0], the program name). Does not own the list.
     class ArgCursor {
         public:
-            ArgCursor(int argc, char** argv) noexcept
-                : _argc(argc), _argv(argv), _pos(1) {}
+            explicit ArgCursor(const std::vector<std::string>& args) noexcept
+                : _args(args), _pos(1) {}
 
-            bool has_next() const noexcept { return _pos < _argc; }
+            bool has_next() const noexcept { return _pos < _args.size(); }
 
             /// Next token without moving. Precondition: has_next().
-            std::string_view peek() const noexcept { return _argv[_pos]; }
+            std::string_view peek() const noexcept { return _args[_pos]; }
 
             /// Next token, then advance. Precondition: has_next().
-            std::string_view next() noexcept { return _argv[_pos++]; }
+            std::string_view next() noexcept { return _args[_pos++]; }
 
             /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
@@ -374,9 +375,8 @@ namespace clap {
             }
 
         private:
-            int _argc;
-            char** _argv;
-            int _pos;
+            const std::vector<std::string>& _args;
+            size_t _pos;
     };
 }
 
@@ -914,7 +914,9 @@ namespace clap {
                 return ref;
             }
 
-            /// Parse argv. Never throws on bad input; returns true on success,
+            /// Parse the argument list. args[0] is the program name and is
+            /// skipped, exactly as argv[0] is.
+            /// Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
             /// every value it can regardless. Registration still throws ConfigError.
             ///
@@ -923,6 +925,10 @@ namespace clap {
             ///   even ones that look like flags.
             /// - a "/" right after the dashes (e.g. -/v, --/count=3): parses and
             ///   validates the argument but discards its value, leaving it unset.
+            bool parse(const std::vector<std::string>& args);
+
+            /// Same, from what main() receives. Copies argv into a vector and
+            /// calls the overload above.
             bool parse(int argc, char **argv);
 
             /// called by parse on entry. prevents weird/stale state when calling parse
@@ -1257,8 +1263,12 @@ void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
 }
 
 bool clap::App::parse(int argc, char **argv) {
+    return parse(std::vector<std::string>(argv, argv + argc));
+}
+
+bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
-    ArgCursor cursor(argc, argv);
+    ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
 
     while (cursor.has_next()) {
