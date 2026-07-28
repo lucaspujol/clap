@@ -193,6 +193,39 @@ Positional arguments are required by default, unless marked with a `.default_val
 A `variadic` is the exception: it means "zero or more", so it is optional by
 default like a `multi_option`. Chain `.required()` to demand at least one value.
 
+**Declare positionals in order: required ones first, optional ones last.** An
+optional positional before a required one can never be skipped, so its default
+is dead. clap catches it and throws a `ConfigError`:
+
+```cpp
+app.positional<std::string>("in", "input").default_value("-");
+app.positional<std::string>("out", "output");   // ConfigError, points at both lines
+```
+
+It catches it at the line that declares the positional. Break the chain and go
+back to it later and there is no line left to catch:
+
+```cpp
+auto& in = app.positional<std::string>("in", "input");
+app.positional<std::string>("out", "output");   // fine, both required so far
+in.default_value("-");                          // too late, nothing checks again
+```
+
+That parses, and it looks fine until someone tries to use the default:
+
+```
+./prog a b        # in=a  out=b            works
+./prog a          # Error: Missing required argument: out
+                  # Usage: prog [<in>] <out>
+```
+
+Positionals match by order, so dropping `in` does not fall back to `"-"`. It
+just hands `in`'s slot to `a`, and `out` gets nothing. The `"-"` default can
+never be reached, and the usage line still prints `[<in>]` as if it could.
+
+So: **chain your `.default_value()` on the same line you declare the
+positional.** Do it the other way and you have been warned.
+
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
 and it works everywhere a built-in does (`examples/custom_type`).
 
