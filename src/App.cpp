@@ -73,32 +73,19 @@ inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
             "positional '" + name + "' declared after variadic positional '"
             + _positionals.back()->raw_names().front() + "' (a variadic must be last)",
             _positionals.back()->location());
-    for (const auto& existing : _positionals)
+    for (const auto& existing : _positionals) {
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
                 "redeclaration of positional " + name, existing->location());
-    check_order_before(*pos, _positionals.size());
+        // Only catches the declaration order. A .default_value() called after
+        // this point flips an earlier positional to optional behind our back --
+        // see "Declaration order of positionals" in the README.
+        if (pos->is_required() && !existing->is_required())
+            throw clap::ConfigError(pos->location(),
+                "required positional '" + name + "' declared after optional positional '"
+                + existing->raw_names().front() + "'", existing->location());
+    }
     _positionals.push_back(std::move(pos));
-}
-
-// A required positional after an optional one can never be satisfied. Checked
-// here and again at parse time: .default_value() runs *after* registration, so
-// it can turn an earlier positional optional behind this check's back.
-inline void clap::App::check_order_before(const Argument& pos, size_t upto) const {
-    if (!pos.is_required())
-        return;
-    for (size_t i = 0; i < upto; ++i)
-        if (!_positionals[i]->is_required())
-            throw clap::ConfigError(pos.location(),
-                "required positional '" + pos.raw_names().front()
-                + "' declared after optional positional '"
-                + _positionals[i]->raw_names().front() + "'",
-                _positionals[i]->location());
-}
-
-inline void clap::App::check_positional_order() const {
-    for (size_t i = 0; i < _positionals.size(); ++i)
-        check_order_before(*_positionals[i], i);
 }
 
 inline clap::Argument* clap::App::find_argument(std::string_view token) {
@@ -163,7 +150,6 @@ inline bool clap::App::parse(int argc, char **argv) {
 
 inline bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
-    check_positional_order();
     ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
 

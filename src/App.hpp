@@ -109,10 +109,7 @@ namespace clap {
             /// skipped, exactly as argv[0] is.
             /// Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
-            /// every value it can regardless. Still throws ConfigError, either from
-            /// registration or from the positional-order check run on entry: an
-            /// optional positional before a required one is unsatisfiable, and
-            /// .default_value() can create that case after registration.
+            /// every value it can regardless. Registration still throws ConfigError.
             ///
             /// Two special forms are recognised:
             /// - "--" on its own: every token after it is treated as positional,
@@ -153,10 +150,6 @@ namespace clap {
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
-            /// Throws ConfigError if pos is required and any of the first `upto`
-            /// positionals is optional.
-            void check_order_before(const Argument& pos, size_t upto) const;
-            void check_positional_order() const;
             Argument* find_argument(std::string_view name);
             /// "did you mean '--x'?" for an unrecognised token, "" when nothing
             /// registered is close enough.
