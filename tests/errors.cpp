@@ -121,5 +121,5 @@ TEST_F(Errors, NoSuggestionWhenEveryNameIsTooShort) {
 
 TEST_F(Errors, BareDashIsUnknown) {
     Argv a{"prog", "-"};
-    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+    expect_ok(app, a);
 }

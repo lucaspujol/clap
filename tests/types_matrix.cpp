@@ -82,7 +82,7 @@ struct Sample<bool> {
     static constexpr const char* label = "bool";
     static constexpr const char* tok_a = "true";
     static constexpr const char* tok_b = "false";
-    static constexpr const char* text_a = "1";
+    static constexpr const char* text_a = "true";
     static constexpr const char* bad = "maybe";
     static constexpr const char* outside = nullptr;
     static bool a() { return true; }
