@@ -53,7 +53,11 @@ install(FILES
 
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 
-set(CLAP_WARNINGS -Wall -Wextra)
+if(MSVC)
+    set(CLAP_WARNINGS /W4 /utf-8)
+else()
+    set(CLAP_WARNINGS -Wall -Wextra)
+endif()
 
 option(CLAP_BUILD_TESTS "Build tests" ON)
 option(CLAP_COVERAGE "Build tests with coverage information" OFF)
