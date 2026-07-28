@@ -15,8 +15,8 @@ BUILD=build-cov
 TRACE=$BUILD/cov.json
 REPORT=$BUILD/cov/index.html
 
-cmake -B $BUILD -DCLAP_COVERAGE=ON >/dev/null
-cmake --build $BUILD --target clap_tests -j >/dev/null
+cmake -B $BUILD -DCLAP_COVERAGE=ON
+cmake --build $BUILD --target clap_tests -j
 
 find $BUILD -name '*.gcda' -delete
 ./$BUILD/clap_tests
