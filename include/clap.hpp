@@ -475,6 +475,7 @@ namespace clap {
             /// Restrict accepted values to an explicit set. needs == and <<
             Derived& choices(std::vector<T> allowed) {
                 std::ostringstream oss;
+                oss << std::boolalpha;
                 for (size_t i = 0; i < allowed.size(); ++i) {
                     if (i) oss << '|';
                     oss << allowed[i];
@@ -523,7 +524,7 @@ namespace clap {
             /// for formatting in InvalidValue hint
             static std::string label(const T& v) {
                 std::ostringstream oss;
-                oss << v;
+                oss << std::boolalpha << v;
                 return oss.str();
             }
 
@@ -602,7 +603,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
-                oss << _default_value.value();
+                oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }
 
@@ -709,6 +710,7 @@ namespace clap {
         std::string default_str() const override {
             if (_default_values.empty()) return "";
             std::ostringstream oss;
+            oss << std::boolalpha;
             for (size_t i = 0; i < _default_values.size(); ++i) {
                 if (i) oss << ',';
                 oss << _default_values[i];
@@ -765,7 +767,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
-                oss << _default_value.value();
+                oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }
 
@@ -918,7 +920,10 @@ namespace clap {
             /// skipped, exactly as argv[0] is.
             /// Never throws on bad input; returns true on success,
             /// false if an error was recorded (see error()/error_kind()). It fills
-            /// every value it can regardless. Registration still throws ConfigError.
+            /// every value it can regardless. Still throws ConfigError, either from
+            /// registration or from the positional-order check run on entry: an
+            /// optional positional before a required one is unsatisfiable, and
+            /// .default_value() can create that case after registration.
             ///
             /// Two special forms are recognised:
             /// - "--" on its own: every token after it is treated as positional,
@@ -959,6 +964,10 @@ namespace clap {
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
+            /// Throws ConfigError if pos is required and any of the first `upto`
+            /// positionals is optional.
+            void check_order_before(const Argument& pos, size_t upto) const;
+            void check_positional_order() const;
             Argument* find_argument(std::string_view name);
             /// "did you mean '--x'?" for an unrecognised token, "" when nothing
             /// registered is close enough.
@@ -1195,21 +1204,41 @@ inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
             "positional registered with an empty name or a comma (a positional has exactly one name)"
     );
     const auto& name = names.front();
+    if (!clap::detail::is_long_body(name))
+        throw clap::ConfigError(pos->location(),
+            "invalid positional name '" + name + "' (letters, digits, '-' and '_', "
+            "starting with a letter or a digit)");
     if (!_positionals.empty() && _positionals.back()->is_multi())
         throw clap::ConfigError(pos->location(),
             "positional '" + name + "' declared after variadic positional '"
             + _positionals.back()->raw_names().front() + "' (a variadic must be last)",
             _positionals.back()->location());
-    for (const auto& existing : _positionals) {
+    for (const auto& existing : _positionals)
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
                 "redeclaration of positional " + name, existing->location());
-        if (pos->is_required() && !existing->is_required())
-            throw clap::ConfigError(pos->location(),
-                "required positional '" + name + "' declared after optional positional '"
-                + existing->raw_names().front() + "'", existing->location());
-    }
+    check_order_before(*pos, _positionals.size());
     _positionals.push_back(std::move(pos));
+}
+
+// A required positional after an optional one can never be satisfied. Checked
+// here and again at parse time: .default_value() runs *after* registration, so
+// it can turn an earlier positional optional behind this check's back.
+inline void clap::App::check_order_before(const Argument& pos, size_t upto) const {
+    if (!pos.is_required())
+        return;
+    for (size_t i = 0; i < upto; ++i)
+        if (!_positionals[i]->is_required())
+            throw clap::ConfigError(pos.location(),
+                "required positional '" + pos.raw_names().front()
+                + "' declared after optional positional '"
+                + _positionals[i]->raw_names().front() + "'",
+                _positionals[i]->location());
+}
+
+inline void clap::App::check_positional_order() const {
+    for (size_t i = 0; i < _positionals.size(); ++i)
+        check_order_before(*_positionals[i], i);
 }
 
 inline clap::Argument* clap::App::find_argument(std::string_view token) {
@@ -1242,10 +1271,12 @@ inline std::string clap::App::usage() const {
 }
 
 inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
-    if (_positional_mode || !starts_with(token, "-")) {
+    // a bare "-" is the POSIX name for stdin: a value, not a flag.
+    if (_positional_mode || !starts_with(token, "-") || token == "-") {
         handle_positional(token);
         return;
     }
+    std::string_view original = token;
     size_t dashes = starts_with(token, "--") ? 2 : 1;
     bool discard = token.size() > dashes && token[dashes] == '/';
     std::string clean;
@@ -1253,6 +1284,10 @@ inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
         clean = std::string(token.substr(0, dashes)) + std::string(token.substr(dashes + 1));
         token = clean;
     }
+    // "--=value", "--/", "-/": nothing but dashes left of the '='. Report the
+    // token the user typed, not the truncated name.
+    if (token.substr(0, token.find('=')).size() <= dashes)
+        throw clap::UnknownArgument(std::string(original));
 
     if (starts_with(token, "--") && token.find("=") != std::string_view::npos)
         parse_long_equals(token, discard);
@@ -1268,6 +1303,7 @@ inline bool clap::App::parse(int argc, char **argv) {
 
 inline bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
+    check_positional_order();
     ArgCursor cursor(args);
     std::optional<clap::ParseException> failure;
 
@@ -1354,8 +1390,15 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
-            if (!attached.empty())
+            if (!attached.empty()) {
+                // '=' is a long-option separator; a short option attaches directly.
+                if (attached.front() == '=')
+                    throw clap::InvalidValue(std::string(attached), short_name,
+                        std::string(arg->type_name()),
+                        "short options take the value attached: '" + short_name
+                        + std::string(attached.substr(1)) + "'");
                 arg->parse(attached, discard);
+            }
             else if (cursor.next_is_value())
                 arg->parse(cursor.next(), discard);
             else
