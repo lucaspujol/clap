@@ -11,6 +11,7 @@
 #include <vector>
 #include <memory>
 #include <source_location>
+#include <utility>
 
 namespace clap {
     class ArgCursor;
@@ -143,7 +144,22 @@ namespace clap {
             std::string _description;
             std::vector<std::unique_ptr<Argument>> _arguments;
             std::vector<std::unique_ptr<Argument>> _positionals;
-            size_t _positional_idx = 0;
+
+            /// A positional token and the argv slot it came from. Positionals
+            /// are collected during the walk and assigned once it ends, so the
+            /// slot has to be carried along for error ordering.
+            using PositionalToken = std::pair<size_t, std::string>;
+            std::vector<PositionalToken> _positional_tokens;
+
+            /// A recorded parse error, tagged with its argv slot.
+            struct Failure {
+                size_t index;
+                ErrorKind kind;
+                std::string message;
+            };
+
+            /// index for a failure that belongs after the whole walk.
+            static constexpr size_t after_argv = static_cast<size_t>(-1);
             std::string _error;
             ErrorKind _error_kind{ErrorKind::OK};
             bool _positional_mode = false;
@@ -156,8 +172,14 @@ namespace clap {
             std::string did_you_mean(std::string_view token) const;
             static bool starts_with(std::string_view str, std::string_view prefix);
 
-            void dispatch(std::string_view token, ArgCursor& cursor);
-            void handle_positional(std::string_view token);
+            void dispatch(std::string_view token, ArgCursor& cursor, size_t index);
+            void handle_positional(std::string_view token, size_t index);
+            /// Hands the collected tokens to the positionals: required ones
+            /// first in declaration order, then optionals take what is left
+            /// over. Runs once, after the walk.
+            void assign_positionals(std::vector<Failure>& failures);
+            void feed(Argument& pos, const PositionalToken& token,
+                      std::vector<Failure>& failures) const;
             void check_required() const;
 
             void parse_long_equals(std::string_view token, bool discard);

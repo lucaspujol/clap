@@ -3,8 +3,9 @@
 #include "ClapExceptions.hpp"
 #include "HelpFormatter.hpp"
 #include "damerau_osa.hpp"
+#include <algorithm>
 #include <cctype>
-#include <optional>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -77,13 +78,6 @@ inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
         if (existing->matches(name))
             throw clap::ConfigError(pos->location(),
                 "redeclaration of positional " + name, existing->location());
-        // Only catches the declaration order. A .default_value() called after
-        // this point flips an earlier positional to optional behind our back --
-        // see "Declaration order of positionals" in the README.
-        if (pos->is_required() && !existing->is_required())
-            throw clap::ConfigError(pos->location(),
-                "required positional '" + name + "' declared after optional positional '"
-                + existing->raw_names().front() + "'", existing->location());
     }
     _positionals.push_back(std::move(pos));
 }
@@ -117,10 +111,10 @@ inline std::string clap::App::usage() const {
     return HelpFormatter(_name, _description, _arguments, _positionals).usage();
 }
 
-inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor) {
+inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor, size_t index) {
     // a bare "-" is the POSIX name for stdin: a value, not a flag.
     if (_positional_mode || !starts_with(token, "-") || token == "-") {
-        handle_positional(token);
+        handle_positional(token, index);
         return;
     }
     std::string_view original = token;
@@ -151,44 +145,49 @@ inline bool clap::App::parse(int argc, char **argv) {
 inline bool clap::App::parse(const std::vector<std::string>& args) {
     reset();
     ArgCursor cursor(args);
-    std::optional<clap::ParseException> failure;
+    std::vector<Failure> failures;
 
     while (cursor.has_next()) {
+        size_t index = cursor.position();
         try {
             std::string_view token = cursor.next();
             if (token == "--" && !_positional_mode) {
                 _positional_mode = true;
                 continue;
             }
-            dispatch(token, cursor);
+            dispatch(token, cursor, index);
         } catch (const clap::ParseException& e) {
-            if (!failure)
-                failure = e;
+            failures.push_back({index, e.kind(), e.what()});
         }
     }
 
-    if (!failure) {
+    // Runs even after a failure, so the values that did parse still fill in.
+    assign_positionals(failures);
+
+    if (failures.empty()) {
         for (auto& arg : _arguments) {
             try {
                 arg->resolve_env();
             } catch (const clap::ParseException& e) {
-                if (!failure)
-                    failure = e;
+                failures.push_back({after_argv, e.kind(), e.what()});
             }
         }
     }
 
-    if (!failure) {
+    if (failures.empty()) {
         try {
             check_required();
         } catch (const clap::ParseException& e) {
-            failure = e;
+            failures.push_back({after_argv, e.kind(), e.what()});
         }
     }
 
-    if (failure) {
-        _error = "Error: " + std::string(failure->what()) + "\n" + usage() + "\n";
-        _error_kind = failure->kind();
+
+    if (!failures.empty()) {
+        const Failure& first = *std::min_element(failures.begin(), failures.end(),
+            [](const Failure& a, const Failure& b) { return a.index < b.index; });
+        _error = "Error: " + first.message + "\n" + usage() + "\n";
+        _error_kind = first.kind;
         return false;
     }
     _error.clear();
@@ -197,7 +196,7 @@ inline bool clap::App::parse(const std::vector<std::string>& args) {
 }
 
 inline void clap::App::reset() noexcept {
-    _positional_idx = 0;
+    _positional_tokens.clear();
     _positional_mode = false;
     _error.clear();
     _error_kind = clap::ErrorKind::OK;
@@ -205,13 +204,52 @@ inline void clap::App::reset() noexcept {
     for (auto& p : _positionals) p->reset();
 }
 
-inline void clap::App::handle_positional(std::string_view token) {
-    if (_positional_idx >= _positionals.size())
-        throw clap::UnknownArgument(std::string(token));
-    auto& pos = _positionals[_positional_idx];
-    pos->parse(token);
-    if (!pos->is_multi())          // a variadic slot keeps eating; don't advance
-        _positional_idx++;
+inline void clap::App::handle_positional(std::string_view token, size_t index) {
+    _positional_tokens.emplace_back(index, std::string(token));
+}
+
+inline void clap::App::feed(Argument& pos, const PositionalToken& token,
+                            std::vector<Failure>& failures) const {
+    try {
+        pos.parse(token.second);
+    } catch (const clap::ParseException& e) {
+        failures.push_back({token.first, e.kind(), e.what()});
+    }
+}
+
+inline void clap::App::assign_positionals(std::vector<Failure>& failures) {
+    // A required variadic needs one token like any other required positional;
+    // the rest of what it eats comes out of the surplus.
+    size_t required = 0;
+    for (const auto& pos : _positionals)
+        if (pos->is_required())
+            ++required;
+
+    const size_t total = _positional_tokens.size();
+    size_t surplus = total > required ? total - required : 0;
+    size_t next = 0;
+
+    for (auto& pos : _positionals) {
+        if (pos->is_multi()) {         // variadic: always last, so it takes everything left
+            while (next < total)
+                feed(*pos, _positional_tokens[next++], failures);
+            break;
+        }
+        if (next >= total)
+            break;
+        if (!pos->is_required()) {     // an optional only eats out of the surplus
+            if (surplus == 0)
+                continue;
+            --surplus;
+        }
+        feed(*pos, _positional_tokens[next++], failures);
+    }
+
+    if (next < total) {
+        const auto& [index, token] = _positional_tokens[next];
+        failures.push_back({index, clap::ErrorKind::UnknownArgument,
+                            "Unknown argument: " + token});
+    }
 }
 
 // --option=value
