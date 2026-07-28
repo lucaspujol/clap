@@ -47,6 +47,7 @@ namespace clap {
         std::string default_str() const override {
             if (_default_values.empty()) return "";
             std::ostringstream oss;
+            oss << std::boolalpha;
             for (size_t i = 0; i < _default_values.size(); ++i) {
                 if (i) oss << ',';
                 oss << _default_values[i];

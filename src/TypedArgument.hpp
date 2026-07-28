@@ -34,6 +34,7 @@ namespace clap {
             /// Restrict accepted values to an explicit set. needs == and <<
             Derived& choices(std::vector<T> allowed) {
                 std::ostringstream oss;
+                oss << std::boolalpha;
                 for (size_t i = 0; i < allowed.size(); ++i) {
                     if (i) oss << '|';
                     oss << allowed[i];
@@ -82,7 +83,7 @@ namespace clap {
             /// for formatting in InvalidValue hint
             static std::string label(const T& v) {
                 std::ostringstream oss;
-                oss << v;
+                oss << std::boolalpha << v;
                 return oss.str();
             }
 

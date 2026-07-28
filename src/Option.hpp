@@ -36,7 +36,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
-                oss << _default_value.value();
+                oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }
 
