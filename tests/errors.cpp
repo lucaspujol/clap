@@ -44,6 +44,25 @@ TEST_F(Errors, MessageCarriesUsageAndCause) {
     EXPECT_NE(app.error().find("Unknown argument: --nope"), std::string::npos);
 }
 
+// Positionals are parsed after the argv walk, not during it, so "first error
+// wins" only stays true because each failure carries the argv slot it came
+// from. Both directions have to be checked, or the tagging can be dropped and
+// only one of them notices.
+
+TEST_F(Errors, BadPositionalBeatsALaterUnknownOption) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c", "count");
+    app.positional<int>("num", "number");
+    expect_error(app, {"prog", "notanint", "--bogus"}, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Errors, UnknownOptionBeatsALaterBadPositional) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c", "count");
+    app.positional<int>("num", "number");
+    expect_error(app, {"prog", "--bogus", "notanint"}, clap::ErrorKind::UnknownArgument);
+}
+
 TEST_F(Errors, FirstErrorIsTheReportedOne) {
     Argv a{"prog", "--nope", "--also-nope"};
     EXPECT_FALSE(app.parse(a.argc(), a.argv()));
@@ -78,12 +97,6 @@ TEST_F(Errors, DuplicatePositionalRejected) {
     clap::App app{"prog", "d"};
     app.positional<int>("pos", "pos1");
     EXPECT_THROW(app.positional<int>("pos", "pos2"), clap::ConfigError);
-}
-
-TEST_F(Errors, OptionalPositionalBeforeRequiredPos) {
-    clap::App app{"prog", "d"};
-    app.positional<int>("opt", "optional positional arg").default_value(67);
-    EXPECT_THROW(app.positional<int>("req", "required positional arg");, clap::ConfigError);
 }
 
 // --- custom app: positional name with a comma (splits into two) -----------------

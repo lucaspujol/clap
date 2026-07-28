@@ -1,7 +1,8 @@
 // Positional slots: fixed ones, and the variadic slot that greedily collects
-// whatever is left. Ordering rules (optional before required, anything after a
-// variadic) are registration errors and live here too, since they are about
-// how positionals compose.
+// whatever is left. Also how tokens are shared out when there are fewer of them
+// than there are slots: required first, then the optionals left to right.
+// A positional after a variadic is still a registration error, and lives here
+// too, since it is about how positionals compose.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
@@ -46,6 +47,47 @@ TEST_F(Positionals, DefaultOverriddenWhenPresent) {
     Argv a{"prog", "custom.ppm"};
     expect_ok(app, a);
     EXPECT_EQ(out.get(), "custom.ppm");
+}
+
+// --- custom apps: allocation when an optional sits before a required one ----
+// Tokens are assigned after the walk, not by running index: the required ones
+// are served first in declaration order, then the optionals split the surplus.
+
+TEST_F(Positionals, OptionalBeforeRequiredKeepsDefaultWhenScarce) {
+    clap::App app{"prog", "d"};
+    auto& in  = app.positional<std::string>("in", "input").default_value("-");
+    auto& out = app.positional<std::string>("out", "output");
+    expect_ok(app, {"prog", "a"});
+    EXPECT_EQ(in.get(), "-");     // skipped: no surplus to spend
+    EXPECT_EQ(out.get(), "a");
+}
+
+TEST_F(Positionals, OptionalBeforeRequiredFillsWhenSurplus) {
+    clap::App app{"prog", "d"};
+    auto& in  = app.positional<std::string>("in", "input").default_value("-");
+    auto& out = app.positional<std::string>("out", "output");
+    expect_ok(app, {"prog", "a", "b"});
+    EXPECT_EQ(in.get(), "a");
+    EXPECT_EQ(out.get(), "b");
+}
+
+TEST_F(Positionals, OptionalBeforeRequiredStillReportsTheRequiredOne) {
+    clap::App app{"prog", "d"};
+    app.positional<std::string>("in", "input").default_value("-");
+    app.positional<std::string>("out", "output");
+    expect_error(app, {"prog"}, clap::ErrorKind::MissingRequiredValue);
+}
+
+// Declaration order breaks the ties: the leftmost optional eats first.
+TEST_F(Positionals, SurplusGoesToTheLeftmostOptional) {
+    clap::App app{"prog", "d"};
+    auto& a = app.positional<std::string>("a", "a").default_value("da");
+    auto& b = app.positional<std::string>("b", "b");
+    auto& c = app.positional<std::string>("c", "c").default_value("dc");
+    expect_ok(app, {"prog", "x", "y"});
+    EXPECT_EQ(a.get(), "x");
+    EXPECT_EQ(b.get(), "y");
+    EXPECT_EQ(c.get(), "dc");
 }
 
 // --- custom apps: a positional without a default is required ----------------
@@ -182,6 +224,28 @@ TEST_F(Variadic, DashDashForcesLiteralCollection) {
     ASSERT_EQ(files.get().size(), 2u);
     EXPECT_EQ(files.get()[0], "-x");
     EXPECT_EQ(files.get()[1], "--y");
+}
+
+// An optional in front of a variadic fills first: it takes one token out of
+// the surplus, the variadic takes whatever remains.
+TEST_F(Variadic, OptionalBeforeVariadicFillsFirst) {
+    clap::App app{"prog", "d"};
+    auto& mode  = app.positional<std::string>("mode", "mode").default_value("fast");
+    auto& files = app.variadic<std::string>("files", "input files");
+    expect_ok(app, {"prog", "safe", "a", "b"});
+    EXPECT_EQ(mode.get(), "safe");
+    EXPECT_EQ(files.get(), (std::vector<std::string>{"a", "b"}));
+}
+
+// A required variadic reserves one token, so the optional in front of it yields
+// rather than starving it.
+TEST_F(Variadic, RequiredVariadicReservesATokenFromTheOptional) {
+    clap::App app{"prog", "d"};
+    auto& mode  = app.positional<std::string>("mode", "mode").default_value("fast");
+    auto& files = app.variadic<std::string>("files", "input files").required();
+    expect_ok(app, {"prog", "a"});
+    EXPECT_EQ(mode.get(), "fast");
+    EXPECT_EQ(files.get(), (std::vector<std::string>{"a"}));
 }
 
 TEST_F(Variadic, PositionalAfterVariadicRejected) {
