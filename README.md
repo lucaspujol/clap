@@ -190,6 +190,9 @@ auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)");
 Everything is optional until you chain `.required()`.
 Positional arguments are required by default, unless marked with a `.default_value()`
 
+A `variadic` is the exception: it means "zero or more", so it is optional by
+default like a `multi_option`. Chain `.required()` to demand at least one value.
+
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
 and it works everywhere a built-in does (`examples/custom_type`).
 
@@ -285,6 +288,12 @@ Positionals have neither form, so use `--`:
 
 ```
 ./prog -- -5
+```
+
+A leading `+` is not a sign clap accepts, in any form:
+
+```
+./prog -c +5      # invalid value '+5'
 ```
 
 ### Errors are values, not exceptions
