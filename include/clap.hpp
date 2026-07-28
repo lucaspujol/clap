@@ -1004,7 +1004,6 @@ namespace clap {
 
 #include <cctype>
 #include <iomanip>
-#include <iostream>
 
 // ===== damerau_osa.cpp =====
 // Names shorter than this are not compared: at one or two characters every
