@@ -193,38 +193,27 @@ Positional arguments are required by default, unless marked with a `.default_val
 A `variadic` is the exception: it means "zero or more", so it is optional by
 default like a `multi_option`. Chain `.required()` to demand at least one value.
 
-**Declare positionals in order: required ones first, optional ones last.** An
-optional positional before a required one can never be skipped, so its default
-is dead. clap catches it and throws a `ConfigError`:
+An optional positional can sit anywhere, including in front of a required one.
+clap serves the required ones first, then hands what is left to the optionals,
+left to right:
 
 ```cpp
 app.positional<std::string>("in", "input").default_value("-");
-app.positional<std::string>("out", "output");   // ConfigError, points at both lines
+app.positional<std::string>("out", "output");
 ```
 
-It catches it at the line that declares the positional. Break the chain and go
-back to it later and there is no line left to catch:
-
-```cpp
-auto& in = app.positional<std::string>("in", "input");
-app.positional<std::string>("out", "output");   // fine, both required so far
-in.default_value("-");                          // too late, nothing checks again
+```
+./prog a b        # in=a    out=b
+./prog a          # in=-    out=a      not enough to go round, so in keeps its default
+./prog            # Error: Missing required argument: out
 ```
 
-That parses, and it looks fine until someone tries to use the default:
+The count decides, not the position. With one token there is nothing to spare,
+so `out` gets it and `in` falls back to `"-"`. Give it two and `in` takes the
+first one.
 
-```
-./prog a b        # in=a  out=b            works
-./prog a          # Error: Missing required argument: out
-                  # Usage: prog [<in>] <out>
-```
-
-Positionals match by order, so dropping `in` does not fall back to `"-"`. It
-just hands `in`'s slot to `a`, and `out` gets nothing. The `"-"` default can
-never be reached, and the usage line still prints `[<in>]` as if it could.
-
-So: **chain your `.default_value()` on the same line you declare the
-positional.** Do it the other way and you have been warned.
+A variadic follows the same rule. It is last, so it collects the remainder, and
+it reserves one token for itself when it is `.required()`.
 
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
 and it works everywhere a built-in does (`examples/custom_type`).
