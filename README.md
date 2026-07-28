@@ -107,8 +107,8 @@ when it is set.
 
 Because the whole argv is parsed before you react, checking `help` first lets it
 win over a missing-required error. Nothing prints or exits behind your back: if
-you want that convenience, wrap the `App` in your own class (see
-`examples/encapsulated` or `examples/struct_args`).
+you want that convenience, wrap the `App` in your own datastruct (see
+`examples/encapsulated`).
 
 ## Building the examples and tests
 
@@ -178,7 +178,7 @@ auto& files = app.variadic<std::string>("files", "Files to process");
 ```
 Only one variadic, nothing after it, else clap throws a `ConfigError` at registration.
 
-Options repeat too. Pass the flag again to grow the list (`examples/multi_option`):
+Options repeat too. Pass the flag again to grow the list.
 
 ```cpp
 auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)");
@@ -187,7 +187,7 @@ auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)");
 
 ### Required, optional, custom types
 
-Everything is optional until you chain `.required()` (`examples/required_optional`).
+Everything is optional until you chain `.required()`.
 Positional arguments are required by default, unless marked with a `.default_value()`
 
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
@@ -244,7 +244,7 @@ satisfy a `.required()` option. Options only, not positionals or lists.
 ### Syntax clap understands
 
 Short flags cluster (`-vf`) and take attached values (`-c10`). Long options
-accept `--count 10` or `--count=10` (`examples/short_clusters`).
+accept `--count 10` or `--count=10`.
 
 **Flag discarding.** putting a `/` after the dashes discards the following
 flag. This acts like "commenting out" a flag to test your app quickly. 
