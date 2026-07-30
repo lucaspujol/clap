@@ -31,8 +31,12 @@ namespace clap::detail {
             return body.size() >= 2 && is_long_body(body);
         }
         auto body = name.substr(1);        // single dash
-        if (body.size() == 1)              // short: any char but space or dash
-            return body[0] != '-' && !std::isspace(static_cast<unsigned char>(body[0]));
+        // short: any char but space, dash, and the two the grammar reserves --
+        // '/' is the discard sigil, '=' the long-option separator, so '-/' and
+        // '-=' would register but could never be routed to.
+        if (body.size() == 1)
+            return body[0] != '-' && body[0] != '/' && body[0] != '=' &&
+                   !std::isspace(static_cast<unsigned char>(body[0]));
         return false;
     }
 }
@@ -45,10 +49,15 @@ inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
     if (arg->raw_names().empty())
         throw clap::ConfigError(arg->location(),
             "argument registered with no valid name");
-    for (const auto& n : arg->raw_names()) {
+    const auto& names = arg->raw_names();
+    for (size_t i = 0; i < names.size(); ++i) {
+        const auto& n = names[i];
         if (!clap::detail::valid_option_name(n))
             throw clap::ConfigError(arg->location(),
                 "invalid option name '" + n + "' (expected -f or --flag)");
+        if (std::find(names.begin(), names.begin() + i, n) != names.begin() + i)
+            throw clap::ConfigError(arg->location(),
+                "redeclaration of flag " + n);
         for (const auto& existing : _arguments)
             if (existing->matches(n))
                 throw clap::ConfigError(arg->location(),
