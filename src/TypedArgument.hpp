@@ -44,7 +44,7 @@ namespace clap {
                 return self();
             }
 
-            /// Restrict accepted values to [lo, hi] range. needs < and <<
+            /// Restrict accepted values to [lo, hi] range. needs <= and <<
             Derived& range(T lo, T hi) {
                 _range_label = std::string(clap::TypeName<T>::value) + " " + label(lo) + ".." + label(hi);
                 _range.emplace(std::move(lo), std::move(hi));
@@ -71,7 +71,9 @@ namespace clap {
                         std::string(type_name())
                     );
                 }
-                if (_range && (v < _range->first || _range->second < v)) {
+                // written as !(lo <= v && v <= hi) so NaN, for which every
+                // comparison is false, is rejected instead of accepted.
+                if (_range && !(_range->first <= v && v <= _range->second)) {
                     throw clap::InvalidValue(
                         std::string(raw),
                         std::string(names()),
