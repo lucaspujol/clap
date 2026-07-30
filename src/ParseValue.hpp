@@ -78,6 +78,8 @@ namespace clap {
             return ParseValue<T>::parse(value);
         } catch (const clap::ParseError &e) {
             throw clap::InvalidValue(std::string(value), std::string(name), std::string(type), e.detail());
+        } catch (const std::exception &e) {
+            throw clap::InvalidValue(std::string(value), std::string(name), std::string(type), e.what());
         }
     }
 }

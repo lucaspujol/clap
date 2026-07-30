@@ -14,6 +14,10 @@ namespace clap {
 
             bool has_next() const noexcept { return _pos < _args.size(); }
 
+            /// Index of the token next() would return. Used to tag an error
+            /// with the argv slot that caused it.
+            size_t position() const noexcept { return _pos; }
+
             /// Next token without moving. Precondition: has_next().
             std::string_view peek() const noexcept { return _args[_pos]; }
 

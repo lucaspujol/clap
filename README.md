@@ -190,6 +190,31 @@ auto& tags = app.multi_option<std::string>("-t,--tag", "Tag (repeat -t)");
 Everything is optional until you chain `.required()`.
 Positional arguments are required by default, unless marked with a `.default_value()`
 
+A `variadic` is the exception: it means "zero or more", so it is optional by
+default like a `multi_option`. Chain `.required()` to demand at least one value.
+
+An optional positional can sit anywhere, including in front of a required one.
+clap serves the required ones first, then hands what is left to the optionals,
+left to right:
+
+```cpp
+app.positional<std::string>("in", "input").default_value("-");
+app.positional<std::string>("out", "output");
+```
+
+```
+./prog a b        # in=a    out=b
+./prog a          # in=-    out=a      not enough to go round, so in keeps its default
+./prog            # Error: Missing required argument: out
+```
+
+The count decides, not the position. With one token there is nothing to spare,
+so `out` gets it and `in` falls back to `"-"`. Give it two and `in` takes the
+first one.
+
+A variadic follows the same rule. It is last, so it collects the remainder, and
+it reserves one token for itself when it is `.required()`.
+
 For a type clap doesn't know, specialize `clap::TypeName` and `clap::ParseValue`
 and it works everywhere a built-in does (`examples/custom_type`).
 
@@ -285,6 +310,12 @@ Positionals have neither form, so use `--`:
 
 ```
 ./prog -- -5
+```
+
+A leading `+` is not a sign clap accepts, in any form:
+
+```
+./prog -c +5      # invalid value '+5'
 ```
 
 ### Errors are values, not exceptions
