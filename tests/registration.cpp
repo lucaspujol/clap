@@ -57,3 +57,18 @@ TEST_F(Registration, LongNameAcceptsDashAndUnderscore) {
     EXPECT_NO_THROW(app.flag("--dry-run", "x"));
     EXPECT_NO_THROW(app.flag("--dry_run", "y"));
 }
+
+// The same name twice in one registration: the second is unreachable.
+TEST_F(Registration, DuplicateNameWithinOneRegistrationRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.option<int>("-c,-c", "count"), clap::ConfigError);
+    EXPECT_THROW(app.flag("--force,--force", "f"), clap::ConfigError);
+}
+
+// '/' is the discard sigil and '=' the long separator, so '-/' and '-=' could
+// never be routed to even though they look like valid short names.
+TEST_F(Registration, ShortNameWithReservedCharRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.option<int>("-/", "x"), clap::ConfigError);
+    EXPECT_THROW(app.option<int>("-=", "y"), clap::ConfigError);
+}

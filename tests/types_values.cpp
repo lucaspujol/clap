@@ -136,3 +136,45 @@ TEST_F(Values, BoolErrorListsAcceptedValues) {
     EXPECT_FALSE(app.parse(a.argc(), a.argv()));
     EXPECT_NE(app.error().find("valid values"), std::string::npos);
 }
+
+// A user ParseValue that throws something other than clap::ParseError. The
+// obvious thing to reach for is std::runtime_error, and parse() promises never
+// to throw on bad input, so it has to become an InvalidValue like any other.
+namespace {
+    // the <=> is only there because TypedArgument::validate instantiates
+    // == and <= on every T, whether or not choices()/range() was used.
+    struct Boom {
+        int v = 0;
+        auto operator<=>(const Boom&) const = default;
+    };
+
+    std::ostream& operator<<(std::ostream& os, const Boom& b) { return os << b.v; }
+}
+
+namespace clap {
+    template<> struct TypeName<Boom> {
+        static constexpr std::string_view value = "boom";
+    };
+
+    template<> struct ParseValue<Boom> {
+        static Boom parse(std::string_view s) {
+            if (s == "bad") throw std::runtime_error("user parser exploded");
+            return Boom{static_cast<int>(s.size())};
+        }
+    };
+}
+
+TEST_F(Values, UserParserThrowingNonParseErrorBecomesInvalidValue) {
+    clap::App app{"prog", "d"};
+    app.option<Boom>("-b", "boom");
+    Argv a{"prog", "-b", "bad"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(Values, UserParserThrowingNonParseErrorKeepsItsMessage) {
+    clap::App app{"prog", "d"};
+    app.option<Boom>("-b", "boom");
+    Argv a{"prog", "-b", "bad"};
+    EXPECT_FALSE(app.parse(a.argc(), a.argv()));
+    EXPECT_NE(app.error().find("user parser exploded"), std::string::npos);
+}

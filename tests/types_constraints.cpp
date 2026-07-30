@@ -66,7 +66,7 @@ TEST_F(RangeChoices, RangeRejectsValueBelow) {
     expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
-// range() leans on operator<, so on strings it compares lexicographically.
+// range() leans on operator<=, so on strings it compares lexicographically.
 TEST_F(RangeChoices, RangeWorksLexicographicallyOnStrings) {
     clap::App app{"prog", "d"};
     auto& tier = app.option<std::string>("-t,--tier", "tier").range("a", "m");
@@ -88,4 +88,30 @@ TEST_F(RangeChoices, RangeCheckedPerElementOnVariadic) {
     app.variadic<int>("ports", "ports").range(1, 65535);
     Argv a{"prog", "22", "8080", "70000"};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+// NaN compares false against everything, so a range test written as
+// "v < lo || hi < v" would let it through. The bounds are checked positively.
+TEST_F(RangeChoices, RangeRejectsNaN) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-d", "d").range(0.0, 10.0);
+    Argv a{"prog", "-d", "nan"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(RangeChoices, RangeRejectsInfinity) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-d", "d").range(0.0, 10.0);
+    Argv a{"prog", "-d", "inf"};
+    expect_error(app, a, clap::ErrorKind::InvalidValue);
+}
+
+TEST_F(RangeChoices, RangeAcceptsBounds) {
+    clap::App app{"prog", "d"};
+    auto& d = app.option<double>("-d", "d").range(0.0, 10.0);
+    for (const char* token : {"0", "10", "4.5"}) {
+        Argv a{"prog", "-d", token};
+        expect_ok(app, a);
+        EXPECT_TRUE(d.is_set()) << "token: " << token;
+    }
 }
