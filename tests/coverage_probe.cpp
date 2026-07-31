@@ -33,10 +33,15 @@
     X(int) X(unsigned) X(char) X(double) X(bool) X(std::string) X(std::filesystem::path) X(Mode)
 
 // explicit instantiation of every template member
-#define CLAP_PROBE_INSTANTIATE(T)       \
-    template class clap::Option<T>;     \
-    template class clap::Positional<T>; \
-    template class clap::ValueList<T>;
+#define CLAP_PROBE_INSTANTIATE(T)              \
+    template class clap::Option<T>;            \
+    template class clap::Positional<T>;        \
+    template class clap::ValueList<T>;         \
+    template class clap::detail::RangeFn<T>;   \
+    template class clap::detail::ChoicesFn<T>; \
+    template class clap::detail::MinFn<T>;     \
+    template class clap::detail::MaxFn<T>;
+
 
 // instantiate every template member with every type. ez
 CLAP_PROBE_TYPES(CLAP_PROBE_INSTANTIATE)
