@@ -77,7 +77,7 @@ namespace clap {
             }
 
         protected:
-            /// parses a T value, validates the range & choices requirements
+            /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
                 T v = clap::parse_checked<T>(value, names(), type_name());
                 validate(v, value);
@@ -87,7 +87,8 @@ namespace clap {
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
-            /// validates the requirements for .range() & .choices()
+            /// runs the validators in registration order. The first one to
+            /// return a reason throws, so only one is ever reported.
             void validate(const T& v, std::string_view raw) {
                 for (const auto& f : _validators) {
                     std::string msg = f(v);

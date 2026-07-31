@@ -141,11 +141,12 @@ TEST_F(Values, BoolErrorListsAcceptedValues) {
 // obvious thing to reach for is std::runtime_error, and parse() promises never
 // to throw on bad input, so it has to become an InvalidValue like any other.
 namespace {
-    // the <=> is only there because TypedArgument::validate instantiates
-    // == and <= on every T, whether or not choices()/range() was used.
+    // Deliberately has no comparison operators. Validators are type-erased into
+    // std::function, so nothing in the shared path instantiates == or <=, and a
+    // custom type only owes what the contract says: TypeName + ParseValue +
+    // operator<<. Adding a <=> here would hide a regression rather than fix one.
     struct Boom {
         int v = 0;
-        auto operator<=>(const Boom&) const = default;
     };
 
     std::ostream& operator<<(std::ostream& os, const Boom& b) { return os << b.v; }

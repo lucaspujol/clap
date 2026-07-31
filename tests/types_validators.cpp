@@ -438,8 +438,9 @@ TEST_F(Validators, EnvValueIsValidated) {
 }
 
 // A default is already a T and never passes through parse_value, so it is not
-// validated. Pinning the current behaviour: a default outside the constraint is
-// the programmer's problem, not a parse error.
+// validated. That is the decided behaviour (#76), not an oversight: a default
+// is written by the programmer, so one that contradicts its own constraint is a
+// bug to fix at the call site, not bad input to report to the CLI user.
 TEST_F(Validators, DefaultValueIsNotValidated) {
     clap::App app{"prog", "d"};
     auto& n = app.option<int>("-n", "n").default_value(0).validator(clap::Min(10));

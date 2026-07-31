@@ -633,12 +633,12 @@ namespace clap {
 
     } // namespace detail
 
-    /// when passing a list of string literals to any builtin validator,
-    /// the type is converted to std::string so the validator can store them. This is
-    /// needed because the validator stores the list for later comparison, and
-    /// string literals are not copyable. The conversion is implicit, so you can
-    /// pass a list of string literals directly to Choices() or Range() without
-    /// having to wrap them in std::string() yourself.
+    /// Each comparing validator carries a const char* overload that maps to
+    /// std::string. Without it T deduces as const char* and the validator keeps
+    /// raw pointers: == would compare addresses instead of text, <= would order
+    /// by address, and a pointer to anything but a literal dangles as soon as
+    /// the caller's temporary dies. The overload makes the conversion implicit,
+    /// so literals go straight into Choices(), Range(), Min() and Max().
 
     /// Usage:
     /// clap::Range(lo, hi)
@@ -749,7 +749,7 @@ namespace clap {
             }
 
         protected:
-            /// parses a T value, validates the range & choices requirements
+            /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
                 T v = clap::parse_checked<T>(value, names(), type_name());
                 validate(v, value);
@@ -759,7 +759,8 @@ namespace clap {
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
-            /// validates the requirements for .range() & .choices()
+            /// runs the validators in registration order. The first one to
+            /// return a reason throws, so only one is ever reported.
             void validate(const T& v, std::string_view raw) {
                 for (const auto& f : _validators) {
                     std::string msg = f(v);

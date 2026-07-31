@@ -1,11 +1,10 @@
 // Value constraints applied after a successful conversion.
 // .choices() and .range(). Both run on every argument kind, so the
-// interesting cases are the // ones that check they still fire on
+// interesting cases are the ones that check they still fire on
 // positionals and per-element on lists.
-// 
-// NOTE: as of Jul 31 2026 10:45, both of theses methods just wrap
-// the .validator() method, which is tested in the tests/types_validator.cpp
-// file.
+//
+// NOTE: as of Jul 31 2026 10:45, both of these methods just wrap
+// the .validator() method, which is tested in tests/types_validators.cpp.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
