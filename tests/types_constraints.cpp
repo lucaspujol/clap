@@ -1,6 +1,10 @@
-// Value constraints applied after a successful conversion: .choices() and
-// .range(). Both run on every argument kind, so the interesting cases are the
-// ones that check they still fire on positionals and per-element on lists.
+// Value constraints applied after a successful conversion.
+// .choices() and .range(). Both run on every argument kind, so the
+// interesting cases are the ones that check they still fire on
+// positionals and per-element on lists.
+//
+// NOTE: as of Jul 31 2026 10:45, both of these methods just wrap
+// the .validator() method, which is tested in tests/types_validators.cpp.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
@@ -26,7 +30,7 @@ TEST_F(RangeChoices, ChoicesRejectsUnlistedValue) {
 TEST_F(RangeChoices, ChoicesHelpListsAlternatives) {
     clap::App app{"prog", "d"};
     app.option<std::string>("-f,--format", "format").choices({"json", "xml", "yaml"});
-    EXPECT_NE(app.help().find("<json|xml|yaml>"), std::string::npos);
+    EXPECT_NE(app.help().find("<string json|xml|yaml>"), std::string::npos);
 }
 
 TEST_F(RangeChoices, ChoicesOnPositionalRejects) {

@@ -13,7 +13,8 @@ whose subject your change is about:
 | `parsing_multi.cpp` | repeatable options (`-n a -n b`) |
 | `types_values.cpp` | token → `T` conversion, supported types |
 | `types_matrix.cpp` | the behaviour every value type shares, run once per type |
-| `types_constraints.cpp` | `.choices()` and `.range()` |
+| `types_constraints.cpp` | the `.choices()` / `.range()` sugar |
+| `types_validators.cpp` | `.validator()` and the builtins in `clap::detail` |
 | `types_env.cpp` | `.from_env()` fallback |
 | `help_output.cpp` | the help flag, the usage line, help annotations |
 | `errors.cpp` | parse-time failures: `ErrorKind` and messages |

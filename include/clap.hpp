@@ -30,11 +30,13 @@
 
 #define CLAP_VERSION "dev"
 
-#include <algorithm>
 #include <charconv>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
+#include <functional>
+#include <initializer_list>
+#include <ios>
 #include <istream>
 #include <memory>
 #include <optional>
@@ -290,6 +292,13 @@ namespace clap {
             /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
+            /// Constraints a validator wants stated next to the description,
+            /// e.g. "must exist". Empty for flags, which take no validator.
+            virtual const std::vector<std::string>& hints() const {
+                static const std::vector<std::string> none;
+                return none;
+            }
+
             /// Environment variable this argument falls back to, or empty.
             virtual std::string env_key() const { return ""; }
             /// Apply the env-var fallback when still unset. May throw
@@ -458,6 +467,222 @@ namespace clap {
     }
 }
 
+// ===== Validators.hpp =====
+namespace clap {
+    /// Builtin validators. Each is a callable that takes a value and returns an
+    /// empty string on success or an error message on failure. Each also has
+    /// optional members label() and hint() that describe the constraint for help.
+    namespace detail {
+        /// Range: accepts [lo, hi]. needs <= and <<. label: "lo..hi"
+        template<typename T>
+        class RangeFn {
+            public:
+                constexpr RangeFn(T lo, T hi) : _lo(lo), _hi(hi) {}
+
+                std::string operator()(const T& v) const {
+                    if (!(_lo <= v && v <= _hi))
+                        return "value out of range.";
+                    return "";
+                }
+
+                std::string label() const {
+                    std::ostringstream oss;
+                    oss << std::boolalpha << _lo << ".." << _hi;
+                    return oss.str();
+                }
+
+            private:
+                T _lo;
+                T _hi;
+        };
+
+        /// Choices: accepts only listed values. needs == and <<. label: "a|b|c"
+        template<typename T>
+        class ChoicesFn {
+            public:
+                ChoicesFn(std::vector<T> vals) : _choices(std::move(vals)) {}
+
+                std::string operator()(const T& v) const {
+                    for (const auto& current : _choices)
+                        if (v == current)
+                            return "";
+                    return "value not in allowed choices.";
+                }
+
+                std::string label() const {
+                    std::ostringstream oss;
+                    oss << std::boolalpha;
+                    bool first = true;
+                    for (const auto& current : _choices) {
+                        if (!first) oss << '|';
+                        oss << current;
+                        first = false;
+                    }
+                    return oss.str();
+                }
+
+            private:
+                std::vector<T> _choices;
+        };
+
+        /// Min: accepts >= min. needs <= and <<. hint: ">= min"
+        template<typename T>
+        class MinFn {
+            public:
+                constexpr MinFn(T min) : _min(min) {}
+
+                std::string operator()(const T& v) const {
+                    // positive form so NaN, for which every comparison is
+                    // false, is rejected instead of accepted.
+                    if (!(_min <= v))
+                        return "value too small";
+                    return "";
+                }
+
+                std::string hint() const {
+                    std::ostringstream oss;
+                    oss << std::boolalpha << ">= " << _min;
+                    return oss.str();
+                }
+
+            private:
+                T _min;
+        };
+
+        /// Max: accepts <= max. needs <= and <<. hint: "<= max"
+        template<typename T>
+        class MaxFn {
+            public:
+                constexpr MaxFn(T max) : _max(max) {}
+
+                std::string operator()(const T& v) const {
+                    if (!(v <= _max))
+                        return "value too big";
+                    return "";
+                }
+
+                std::string hint() const {
+                    std::ostringstream oss;
+                    oss << std::boolalpha << "<= " << _max;
+                    return oss.str();
+                }
+
+            private:
+                T _max;
+        };
+
+        /// FileExists: accepts only existing files. hint: "must exist"
+        class FileExistsFn {
+            public:
+                std::string operator()(const std::filesystem::path& v) const {
+                    std::error_code ec;
+                    if (std::filesystem::is_directory(v, ec))
+                        return v.string() + " is a directory";
+                    if (!std::filesystem::is_regular_file(v, ec))
+                        return "file does not exist";
+                    return "";
+                }
+
+                std::string hint() const { return "must exist"; }
+        };
+
+        /// DirExists: accepts only existing directories. hint: "must be a directory"
+        class DirExistsFn {
+            public:
+            std::string operator()(const std::filesystem::path& v) const {
+                std::error_code ec;
+                if (std::filesystem::is_regular_file(v, ec))
+                    return v.string() + " is a regular file";
+                if (!std::filesystem::is_directory(v, ec))
+                    return "directory does not exist";
+                return "";
+            }
+
+            std::string hint() const { return "must be a directory"; }
+        };
+
+        /// NonexistentPath: accepts only paths that do not exist. hint: "must not exist"
+        class NonexistentPathFn {
+            public:
+                std::string operator()(const std::filesystem::path& v) const {
+                    std::error_code ec;
+                    // symlink_status, not exists: a dangling link reads as
+                    // absent but still occupies the name, and creating there
+                    // fails with EEXIST.
+                    if (std::filesystem::exists(std::filesystem::symlink_status(v, ec)))
+                        return "path already exists";
+                    return "";
+                }
+
+                std::string hint() const { return "must not exist"; }
+        };
+
+        /// NonEmpty: accepts only non-empty values.    needs empty(). hint: "non-empty"
+        class NonEmptyFn {
+            public:
+                template<typename T>
+                requires requires (const T& v) { { v.empty() } -> std::convertible_to<bool>; }
+                std::string operator()(const T& v) const {
+                    if (v.empty())
+                        return "value cannot be empty";
+                    return "";
+                }
+
+                std::string hint() const { return "non-empty"; }
+        };
+
+    } // namespace detail
+
+    /// Each comparing validator carries a const char* overload that maps to
+    /// std::string. Without it T deduces as const char* and the validator keeps
+    /// raw pointers: == would compare addresses instead of text, <= would order
+    /// by address, and a pointer to anything but a literal dangles as soon as
+    /// the caller's temporary dies. The overload makes the conversion implicit,
+    /// so literals go straight into Choices(), Range(), Min() and Max().
+
+    /// Usage:
+    /// clap::Range(lo, hi)
+    template<typename T>
+    detail::RangeFn<T> Range(T lo, T hi) { return detail::RangeFn<T>(std::move(lo), std::move(hi)); }
+    inline detail::RangeFn<std::string> Range(const char* lo, const char* hi) {
+        return detail::RangeFn<std::string>(lo, hi);
+    }
+
+    /// Usage:
+    /// clap::Choices(vals) where is a vector or initializer_list of T
+    /// clap::Choices({a, b, c})
+    template<typename T>
+    detail::ChoicesFn<T> Choices(std::vector<T> vals) { return detail::ChoicesFn<T>(std::move(vals)); }
+    template<typename T>
+    detail::ChoicesFn<T> Choices(std::initializer_list<T> vals) { return detail::ChoicesFn<T>(vals); }
+    inline detail::ChoicesFn<std::string> Choices(std::initializer_list<const char*> vals) {
+        return detail::ChoicesFn<std::string>(std::vector<std::string>(vals.begin(), vals.end()));
+    }
+
+    /// Usage:
+    /// clap::Min(min)
+    template<typename T>
+    detail::MinFn<T> Min(T min) { return detail::MinFn<T>(std::move(min)); }
+    inline detail::MinFn<std::string> Min(const char* min) { return detail::MinFn<std::string>(min); }
+
+    /// Usage:
+    /// clap::Max(max)
+    template<typename T>
+    detail::MaxFn<T> Max(T max) { return detail::MaxFn<T>(std::move(max)); }
+    inline detail::MaxFn<std::string> Max(const char* max) { return detail::MaxFn<std::string>(max); }
+
+    /// Usage:
+    /// clap::FileExists
+    /// clap::DirExists
+    /// clap::NonexistentPath
+    /// clap::NonEmpty
+    inline constexpr detail::FileExistsFn FileExists{};
+    inline constexpr detail::DirExistsFn DirExists{};
+    inline constexpr detail::NonexistentPathFn NonexistentPath{};
+    inline constexpr detail::NonEmptyFn NonEmpty{};
+
+} // namespace clap
+
 // ===== TypedArgument.hpp =====
 namespace clap {
 
@@ -471,35 +696,60 @@ namespace clap {
             /// isn't typed.)
             bool takes_value() const noexcept override { return true; }
 
-            /// help label checks the choices first: <xml|json|yaml>, not <string>
+            /// the type is always shown; labelled validators narrow it after it.
+            /// <string json|xml|yaml>, <int 1..10>
             std::string_view type_name() const override {
-                if (!_choices_label.empty()) return _choices_label;
-                if (!_range_label.empty())   return _range_label;
+                if (!_label.empty()) return _label;
                 return clap::TypeName<T>::value;
             }
 
             /// Restrict accepted values to an explicit set. needs == and <<
             Derived& choices(std::vector<T> allowed) {
-                std::ostringstream oss;
-                oss << std::boolalpha;
-                for (size_t i = 0; i < allowed.size(); ++i) {
-                    if (i) oss << '|';
-                    oss << allowed[i];
-                }
-                _choices_label = oss.str();
-                _choices = std::move(allowed);
+                validator(clap::Choices(allowed));
                 return self();
             }
 
             /// Restrict accepted values to [lo, hi] range. needs <= and <<
             Derived& range(T lo, T hi) {
-                _range_label = std::string(clap::TypeName<T>::value) + " " + label(lo) + ".." + label(hi);
-                _range.emplace(std::move(lo), std::move(hi));
+                validator(clap::Range(lo, hi));
+                return self();
+            }
+
+            const std::vector<std::string>& hints() const override { return _hints; }
+
+            /// Register a custom validator. The function should return an empty
+            /// string on success, or an error message on failure.
+            ///
+            /// Two optional members describe it in the help: label() narrows the
+            /// type slot, for constraints on the shape of the token itself
+            /// (<string json|xml|yaml>); hint() states a requirement next to the
+            /// description ("must exist"), for everything else.
+            template<typename F>
+            Derived& validator(F func) {
+                static_assert(std::is_invocable_r_v<std::string, const F&, const T&>,
+                    "validator must be callable as std::string(const T&). "
+                    "Check the value type: clap::FileExists/DirExists/NonexistentPath "
+                    "need std::filesystem::path, clap::NonEmpty needs a type with .empty().");
+                if constexpr ( requires { func.label(); }) {
+                    std::string l = func.label();
+                    if (!l.empty()) {
+                        if (_label.empty())
+                            _label = clap::TypeName<T>::value;
+                        _label += " " + l;
+                    }
+                }
+                if constexpr ( requires { func.hint(); }) {
+                    std::string h = func.hint();
+                    if (!h.empty())
+                        _hints.push_back(std::move(h));
+                }
+                if constexpr (std::is_invocable_r_v<std::string, const F&, const T&>)
+                    _validators.push_back(std::move(func));
                 return self();
             }
 
         protected:
-            /// parses a T value, validates the range & choices requirements
+            /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
                 T v = clap::parse_checked<T>(value, names(), type_name());
                 validate(v, value);
@@ -509,37 +759,20 @@ namespace clap {
         private:
             Derived& self() { return static_cast<Derived&>(*this); }
 
-            /// validates the requirements for .range() & .choices()
+            /// runs the validators in registration order. The first one to
+            /// return a reason throws, so only one is ever reported.
             void validate(const T& v, std::string_view raw) {
-                if (!_choices.empty() && std::find(_choices.begin(), _choices.end(), v) == _choices.end()) {
-                    throw clap::InvalidValue(
-                        std::string(raw),
-                        std::string(names()),
-                        std::string(type_name())
-                    );
-                }
-                // written as !(lo <= v && v <= hi) so NaN, for which every
-                // comparison is false, is rejected instead of accepted.
-                if (_range && !(_range->first <= v && v <= _range->second)) {
-                    throw clap::InvalidValue(
-                        std::string(raw),
-                        std::string(names()),
-                        std::string(type_name())
-                    );
+                for (const auto& f : _validators) {
+                    std::string msg = f(v);
+                    if (!msg.empty())
+                        throw clap::InvalidValue(std::string(raw), std::string(names()),
+                                                 std::string(type_name()), msg);
                 }
             }
 
-            /// for formatting in InvalidValue hint
-            static std::string label(const T& v) {
-                std::ostringstream oss;
-                oss << std::boolalpha << v;
-                return oss.str();
-            }
-
-            std::vector<T> _choices;
-            std::string _choices_label;
-            std::optional<std::pair<T, T>> _range;
-            std::string _range_label;
+            std::vector<std::function<std::string(const T&)>> _validators;
+            std::string _label;
+            std::vector<std::string> _hints;
     };
 }
 
@@ -816,6 +1049,10 @@ namespace clap {
             std::string help() const;
 
         private:
+            /// Past this many optional options the usage line stops being a
+            /// summary, and they collapse into a single [OPTIONS].
+            static constexpr size_t _usage_option_limit = 5;
+
             std::string usage_token(const Argument& arg, bool positional) const;
             std::string name_col(const Argument& arg) const;
             std::string type_col(const Argument& arg) const;
@@ -1006,6 +1243,7 @@ namespace clap {
     };
 }
 
+#include <algorithm>
 #include <cctype>
 #include <iomanip>
 
@@ -1116,6 +1354,8 @@ inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) co
         s += " (default: " + arg.default_str() + ")";
     if (!arg.env_key().empty())
         s += " (env: " + arg.env_key() + ")";
+    for (const auto& hint : arg.hints())
+        s += " (" + hint + ")";
     return s;
 }
 
@@ -1140,8 +1380,19 @@ inline size_t clap::HelpFormatter::type_width() const {
 inline std::string clap::HelpFormatter::usage() const {
     std::ostringstream oss;
     oss << "Usage: " << _name;
+
+    // required options are part of the command's shape, so they survive the
+    // collapse; the optional ones are what the table below is for.
+    size_t optional = 0;
     for (const auto& a : _options)
-        oss << " " << usage_token(*a, false);
+        optional += !a->is_required();
+    const bool collapse = optional > _usage_option_limit;
+
+    if (collapse)
+        oss << " [OPTIONS]";
+    for (const auto& a : _options)
+        if (!collapse || a->is_required())
+            oss << " " << usage_token(*a, false);
     for (const auto& p : _positionals)
         oss << " " << usage_token(*p, true);
     return oss.str();

@@ -14,6 +14,9 @@
 //   .required()        parse fails if absent
 //   .range(lo, hi)     reject values outside [lo, hi]
 //   .choices({...})    reject values outside the set
+//   .validator(fn)     reject whatever fn rejects; .range() and .choices() are
+//                      sugar over it. Builtins: clap::Min, Max, FileExists,
+//                      DirExists, NonexistentPath, NonEmpty
 //   .from_env("KEY")   env var fallback, ranked argv > env > default > unset
 //   required() and default_value() are mutually exclusive (ConfigError).
 //

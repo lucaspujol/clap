@@ -24,6 +24,10 @@ namespace clap {
             std::string help() const;
 
         private:
+            /// Past this many optional options the usage line stops being a
+            /// summary, and they collapse into a single [OPTIONS].
+            static constexpr size_t _usage_option_limit = 5;
+
             std::string usage_token(const Argument& arg, bool positional) const;
             std::string name_col(const Argument& arg) const;
             std::string type_col(const Argument& arg) const;

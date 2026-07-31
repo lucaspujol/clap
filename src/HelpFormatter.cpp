@@ -40,6 +40,8 @@ inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) co
         s += " (default: " + arg.default_str() + ")";
     if (!arg.env_key().empty())
         s += " (env: " + arg.env_key() + ")";
+    for (const auto& hint : arg.hints())
+        s += " (" + hint + ")";
     return s;
 }
 
@@ -64,8 +66,19 @@ inline size_t clap::HelpFormatter::type_width() const {
 inline std::string clap::HelpFormatter::usage() const {
     std::ostringstream oss;
     oss << "Usage: " << _name;
+
+    // required options are part of the command's shape, so they survive the
+    // collapse; the optional ones are what the table below is for.
+    size_t optional = 0;
     for (const auto& a : _options)
-        oss << " " << usage_token(*a, false);
+        optional += !a->is_required();
+    const bool collapse = optional > _usage_option_limit;
+
+    if (collapse)
+        oss << " [OPTIONS]";
+    for (const auto& a : _options)
+        if (!collapse || a->is_required())
+            oss << " " << usage_token(*a, false);
     for (const auto& p : _positionals)
         oss << " " << usage_token(*p, true);
     return oss.str();

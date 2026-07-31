@@ -5,6 +5,7 @@
 #include "support/custom_type.hpp"
 #include "support/env.hpp"
 
+#include "gtest/gtest.h"
 #include <cstdlib>
 #include <filesystem>
 #include <string>
@@ -316,9 +317,9 @@ TYPED_TEST(ValueTypes, ChoicesAcceptsListedAndRejectsOther) {
     using S = Sample<TypeParam>;
     auto& opt = this->app.template option<TypeParam>("-x,--xx", "x")
                     .choices({S::a()});
-    // choices list replaces the type in the help label.
-    // ex: <int> becomes <10> if the only choice is 10.
-    EXPECT_EQ(opt.type_name(), S::text_a);
+    // choices list narrows the type in the help label, after it.
+    // ex: <int> becomes <int 10> if the only choice is 10.
+    EXPECT_EQ(opt.type_name(), std::string(S::label) + " " + S::text_a);
 
     Argv good{"prog", "-x", S::tok_a};
     expect_ok(this->app, good);
@@ -349,8 +350,37 @@ TYPED_TEST(ValueTypes, RangeAcceptsInsideAndRejectsOutside) {
     expect_error(other, bad, clap::ErrorKind::InvalidValue);
 }
 
-// `if constexpr`, not a plain `if`: a runtime guard still compiles the body for
-// string & path, and passing their null `bad` to setenv() warns (-Wnonnull).
+TYPED_TEST(ValueTypes, MinValidatorAcceptsInside) {
+    using S = Sample<TypeParam>;
+    auto& opt = this->app.template option<TypeParam>("-x,--xx", "x")
+                    .validator(clap::Min(S::lo()));
+    Argv good{"prog", "-x", S::tok_a};
+    expect_ok(this->app, good);
+    EXPECT_EQ(opt.get(), S::a());
+}
+
+TYPED_TEST(ValueTypes, MaxValidatorAcceptsInside) {
+    using S = Sample<TypeParam>;
+    auto& opt = this->app.template option<TypeParam>("-x,--xx", "x")
+                    .validator(clap::Max(S::hi()));
+    Argv good{"prog", "-x", S::tok_a};
+    expect_ok(this->app, good);
+    EXPECT_EQ(opt.get(), S::a());
+}
+
+// A hint is stored on the argument, not on the option table, so every kind
+// carries its own. Options are covered by the two tests above; this pins the
+// other two kinds.
+TYPED_TEST(ValueTypes, HintsSurviveOnEveryArgumentKind) {
+    using S = Sample<TypeParam>;
+    auto& pos = this->app.template positional<TypeParam>("first", "first")
+                    .validator(clap::Min(S::lo()));
+    auto& rest = this->app.template variadic<TypeParam>("rest", "rest")
+                     .validator(clap::Max(S::hi()));
+
+    EXPECT_EQ(pos.hints().size(), 1u);
+    EXPECT_EQ(rest.hints().size(), 1u);
+}
 
 TYPED_TEST(ValueTypes, BadValueIsReported) {
     using S = Sample<TypeParam>;

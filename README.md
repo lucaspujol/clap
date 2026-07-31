@@ -235,8 +235,10 @@ app.option<int>("-j,--jobs", "parallel jobs")
 Anything outside fails with the same `InvalidValue` you get from any other bad
 input, worded the same way, no hand-rolled compare-and-print block on your side.
 
-`.choices()` also feeds the help: the option reads `<json|xml|yaml>` instead of
-`<string>`, so the allowed values document themselves.
+Both feed the help. The type is always shown and the constraint narrows it right
+after, so `-f` reads `<string json|xml|yaml>` and `-j` reads `<int 1..64>`: the
+allowed values document themselves without you repeating them in the
+description.
 
 They chain like the rest, and work on positionals and lists too. On a list
 `.range()` checks every element:
@@ -245,6 +247,80 @@ They chain like the rest, and work on positionals and lists too. On a list
 app.positional<std::string>("mode", "run mode").choices({"fast", "safe"});
 app.variadic<int>("ports", "ports to bind").range(1, 65535);
 ```
+
+### Anything else: `.validator()`
+
+`.choices()` and `.range()` are sugar over one hook. A validator is any callable
+that takes the parsed value and returns a `std::string`: empty means accepted,
+anything else is the reason it was rejected, and that reason is what the user
+reads. No base class to inherit, no registration step.
+
+```cpp
+app.option<int>("-n,--size", "buffer size")
+   .validator([](int n) {
+       return n > 0 && (n & (n - 1)) == 0 ? "" : "must be a power of two";
+   });
+```
+
+```
+./prog -n 12
+Error: invalid value '12' for '-n,--size' (expected int)
+        must be a power of two
+```
+
+Eight validators ship with clap. They are objects, not functions, so they take
+no `()` at the call site:
+
+| validator | works on | shows up as |
+|---|---|---|
+| `clap::Range(lo, hi)` | anything with `<=` and `<<` | `<int 1..64>` |
+| `clap::Choices({a, b, c})` | anything with `==` and `<<` | `<string a\|b\|c>` |
+| `clap::Min(v)` | anything with `<=` and `<<` | `(>= 1)` |
+| `clap::Max(v)` | anything with `<=` and `<<` | `(<= 64)` |
+| `clap::FileExists` | `std::filesystem::path` | `(must exist)` |
+| `clap::DirExists` | `std::filesystem::path` | `(must be a directory)` |
+| `clap::NonexistentPath` | `std::filesystem::path` | `(must not exist)` |
+| `clap::NonEmpty` | anything with `.empty()` | `(non-empty)` |
+
+The two columns on the right are two different places in the help. A constraint
+on the *shape* of the value narrows the type slot; anything else is stated next
+to the description:
+
+```cpp
+app.positional<std::filesystem::path>("input", "source file").validator(clap::FileExists);
+app.option<int>("-j,--jobs", "parallel jobs").validator(clap::Min(1)).default_value(4);
+app.option<int>("-p,--port", "port").validator(clap::Range(1, 65535));
+```
+
+```
+Options:
+  -h,--help                  show this help message
+  -j,--jobs  <int>           parallel jobs (default: 4) (>= 1)
+  -p,--port  <int 1..65535>  port
+
+Arguments:
+  input      <path>          source file (required) (must exist)
+```
+
+Chaining twice is AND, and the first one to complain wins, so only one reason is
+ever reported:
+
+```cpp
+app.option<std::filesystem::path>("-o,--out", "output file")
+   .validator(clap::NonexistentPath)
+   .validator(clap::NonEmpty);
+```
+
+Validators run on values that came from argv and from the environment, on every
+argument kind, and on every element of a list. They do **not** run on
+`.default_value()`. A default is written by you, not typed by your user: if it
+contradicts the constraint that is a bug in your program, not bad input to
+report at runtime.
+
+Because a validator is stored as `std::function<std::string(const T&)>`, a
+custom value type needs nothing beyond the usual `TypeName` + `ParseValue` +
+`operator<<`. Comparison operators are only required by the validators that
+actually compare, and only when you use them.
 
 ### Values from the environment
 
@@ -259,8 +335,8 @@ app.option<int>("-p,--port", "port to listen on")
 
 Precedence is **argv > env > `default_value()` > unset**.
 
-The env value parses and validates like any other, `.choices()` and `.range()`
-included. `PORT=nope` is an `InvalidValue` that names the variable, so you don't
+The env value parses and validates like any other, every validator included.
+`PORT=nope` is an `InvalidValue` that names the variable, so you don't
 go hunting through argv for a `-p` you never passed.
 
 It resolves after argv and before the required check, so the environment can
@@ -279,7 +355,7 @@ flag will still give out an error
 
 ```
 ./prog -/v            # flag stays false
-./prog --/count=3     # 3 is parsed and range-checked, then discarded
+./prog --/count=3     # 3 is parsed and validated, then discarded
 ./prog --/count=abc   # error: count expects and int, got string
 ```
 

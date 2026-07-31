@@ -62,3 +62,6 @@ examples/testing/*
 temp/
 build-cov/
 .cache/
+
+# tuxedo todo
+todo.txt
