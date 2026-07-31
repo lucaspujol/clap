@@ -1,9 +1,7 @@
 #pragma once
 
-#include <algorithm>
-#include <optional>
+#include <functional>
 #include <string>
-#include <sstream>
 #include <utility>
 #include <vector>
 
@@ -11,6 +9,7 @@
 #include "TypeNames.hpp"
 #include "ClapExceptions.hpp"
 #include "ParseValue.hpp"
+#include "Validators.hpp"
 
 namespace clap {
 
@@ -24,30 +23,50 @@ namespace clap {
             /// isn't typed.)
             bool takes_value() const noexcept override { return true; }
 
-            /// help label checks the choices first: <xml|json|yaml>, not <string>
+            /// the type is always shown; labelled validators narrow it after it.
+            /// <string json|xml|yaml>, <int 1..10>
             std::string_view type_name() const override {
-                if (!_choices_label.empty()) return _choices_label;
-                if (!_range_label.empty())   return _range_label;
+                if (!_label.empty()) return _label;
                 return clap::TypeName<T>::value;
             }
 
             /// Restrict accepted values to an explicit set. needs == and <<
             Derived& choices(std::vector<T> allowed) {
-                std::ostringstream oss;
-                oss << std::boolalpha;
-                for (size_t i = 0; i < allowed.size(); ++i) {
-                    if (i) oss << '|';
-                    oss << allowed[i];
-                }
-                _choices_label = oss.str();
-                _choices = std::move(allowed);
+                validator(clap::Choices(allowed));
                 return self();
             }
 
             /// Restrict accepted values to [lo, hi] range. needs <= and <<
             Derived& range(T lo, T hi) {
-                _range_label = std::string(clap::TypeName<T>::value) + " " + label(lo) + ".." + label(hi);
-                _range.emplace(std::move(lo), std::move(hi));
+                validator(clap::Range(lo, hi));
+                return self();
+            }
+
+            const std::vector<std::string>& hints() const override { return _hints; }
+
+            /// Register a custom validator. The function should return an empty
+            /// string on success, or an error message on failure.
+            ///
+            /// Two optional members describe it in the help: label() narrows the
+            /// type slot, for constraints on the shape of the token itself
+            /// (<string json|xml|yaml>); hint() states a requirement next to the
+            /// description ("must exist"), for everything else.
+            template<typename F>
+            Derived& validator(F func) {
+                if constexpr ( requires { func.label(); }) {
+                    std::string l = func.label();
+                    if (!l.empty()) {
+                        if (_label.empty())
+                            _label = clap::TypeName<T>::value;
+                        _label += " " + l;
+                    }
+                }
+                if constexpr ( requires { func.hint(); }) {
+                    std::string h = func.hint();
+                    if (!h.empty())
+                        _hints.push_back(std::move(h));
+                }
+                _validators.push_back(std::move(func));
                 return self();
             }
 
@@ -64,34 +83,16 @@ namespace clap {
 
             /// validates the requirements for .range() & .choices()
             void validate(const T& v, std::string_view raw) {
-                if (!_choices.empty() && std::find(_choices.begin(), _choices.end(), v) == _choices.end()) {
-                    throw clap::InvalidValue(
-                        std::string(raw),
-                        std::string(names()),
-                        std::string(type_name())
-                    );
-                }
-                // written as !(lo <= v && v <= hi) so NaN, for which every
-                // comparison is false, is rejected instead of accepted.
-                if (_range && !(_range->first <= v && v <= _range->second)) {
-                    throw clap::InvalidValue(
-                        std::string(raw),
-                        std::string(names()),
-                        std::string(type_name())
-                    );
+                for (const auto& f : _validators) {
+                    std::string msg = f(v);
+                    if (!msg.empty())
+                        throw clap::InvalidValue(std::string(raw), std::string(names()),
+                                                 std::string(type_name()), msg);
                 }
             }
 
-            /// for formatting in InvalidValue hint
-            static std::string label(const T& v) {
-                std::ostringstream oss;
-                oss << std::boolalpha << v;
-                return oss.str();
-            }
-
-            std::vector<T> _choices;
-            std::string _choices_label;
-            std::optional<std::pair<T, T>> _range;
-            std::string _range_label;
+            std::vector<std::function<std::string(const T&)>> _validators;
+            std::string _label;
+            std::vector<std::string> _hints;
     };
 }
