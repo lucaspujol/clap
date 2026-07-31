@@ -33,6 +33,13 @@ namespace clap {
             /// Rendered default value for help, or empty if none.
             virtual std::string default_str() const { return ""; }
 
+            /// Constraints a validator wants stated next to the description,
+            /// e.g. "must exist". Empty for flags, which take no validator.
+            virtual const std::vector<std::string>& hints() const {
+                static const std::vector<std::string> none;
+                return none;
+            }
+
             /// Environment variable this argument falls back to, or empty.
             virtual std::string env_key() const { return ""; }
             /// Apply the env-var fallback when still unset. May throw
