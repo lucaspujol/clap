@@ -316,9 +316,9 @@ TYPED_TEST(ValueTypes, ChoicesAcceptsListedAndRejectsOther) {
     using S = Sample<TypeParam>;
     auto& opt = this->app.template option<TypeParam>("-x,--xx", "x")
                     .choices({S::a()});
-    // choices list replaces the type in the help label.
-    // ex: <int> becomes <10> if the only choice is 10.
-    EXPECT_EQ(opt.type_name(), S::text_a);
+    // choices list narrows the type in the help label, after it.
+    // ex: <int> becomes <int 10> if the only choice is 10.
+    EXPECT_EQ(opt.type_name(), std::string(S::label) + " " + S::text_a);
 
     Argv good{"prog", "-x", S::tok_a};
     expect_ok(this->app, good);

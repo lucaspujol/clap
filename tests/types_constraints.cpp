@@ -26,7 +26,7 @@ TEST_F(RangeChoices, ChoicesRejectsUnlistedValue) {
 TEST_F(RangeChoices, ChoicesHelpListsAlternatives) {
     clap::App app{"prog", "d"};
     app.option<std::string>("-f,--format", "format").choices({"json", "xml", "yaml"});
-    EXPECT_NE(app.help().find("<json|xml|yaml>"), std::string::npos);
+    EXPECT_NE(app.help().find("<string json|xml|yaml>"), std::string::npos);
 }
 
 TEST_F(RangeChoices, ChoicesOnPositionalRejects) {
