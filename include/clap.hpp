@@ -726,6 +726,10 @@ namespace clap {
             /// description ("must exist"), for everything else.
             template<typename F>
             Derived& validator(F func) {
+                static_assert(std::is_invocable_r_v<std::string, const F&, const T&>,
+                    "validator must be callable as std::string(const T&). "
+                    "Check the value type: clap::FileExists/DirExists/NonexistentPath "
+                    "need std::filesystem::path, clap::NonEmpty needs a type with .empty().");
                 if constexpr ( requires { func.label(); }) {
                     std::string l = func.label();
                     if (!l.empty()) {
@@ -739,7 +743,8 @@ namespace clap {
                     if (!h.empty())
                         _hints.push_back(std::move(h));
                 }
-                _validators.push_back(std::move(func));
+                if constexpr (std::is_invocable_r_v<std::string, const F&, const T&>)
+                    _validators.push_back(std::move(func));
                 return self();
             }
 
