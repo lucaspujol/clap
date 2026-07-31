@@ -107,6 +107,25 @@ TEST_F(Usage, RequiredPositionalNotBracketed) {
     EXPECT_EQ(app.usage(), "Usage: prog <scene>");
 }
 
+// Past the limit the optional options stop being a summary and collapse. The
+// standard app sits at five, one under, so it still prints them all.
+TEST_F(Usage, ManyOptionalOptionsCollapse) {
+    clap::App app{"prog", "d"};
+    for (const char* name : {"-a", "-b", "-c", "-d", "-e", "-f"})
+        app.flag(name, "f");
+    EXPECT_EQ(app.usage(), "Usage: prog [OPTIONS]");
+}
+
+// The shape of the command is what survives: required options and positionals.
+TEST_F(Usage, CollapseKeepsRequiredOptionsAndPositionals) {
+    clap::App app{"prog", "d"};
+    for (const char* name : {"-a", "-b", "-c", "-d", "-e", "-f"})
+        app.flag(name, "f");
+    app.option<int>("-j,--jobs", "jobs").required();
+    app.positional<std::string>("input", "in");
+    EXPECT_EQ(app.usage(), "Usage: prog [OPTIONS] -j <int> <input>");
+}
+
 TEST_F(Usage, HelpAnnotatesRequired) {
     clap::App app{"prog", "d"};
     app.option<int>("-c,--count", "count").required();
