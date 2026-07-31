@@ -2,7 +2,8 @@
 #include "support/standard_app.hpp"
 #include <gtest/gtest.h>
 
-#include <cstdlib>
+#include "support/env.hpp"
+
 #include <filesystem>
 #include <fstream>
 
@@ -14,6 +15,7 @@ struct Validators : StandardApp {
     fs::path file;         // exists, regular file
     fs::path absent;       // does not exist
     fs::path dangling;     // a symlink whose target does not exist
+    bool has_symlink = false;
 
     void SetUp() override {
         dir = fs::temp_directory_path() / "clap_validators_test";
@@ -25,7 +27,12 @@ struct Validators : StandardApp {
 
         absent = dir / "absent.txt";
         dangling = dir / "dangling";
-        fs::create_symlink(absent, dangling);
+        // Windows only allows this with Developer Mode or elevation, and this
+        // runs for every test in the fixture, so a throw here would take the
+        // whole suite down. The two tests that need one skip instead.
+        std::error_code ec;
+        fs::create_symlink(absent, dangling, ec);
+        has_symlink = !ec;
     }
 
     void TearDown() override { fs::remove_all(dir); }
@@ -43,7 +50,7 @@ TEST_F(Validators, FileExistsRejectsNonexistent) {
 TEST_F(Validators, FileExistsAcceptsExisting) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-f", "file").validator(clap::FileExists);
-    Argv a{"prog", "-f", file.c_str()};
+    Argv a{"prog", "-f", file.string()};
     expect_ok(app, a);
 }
 
@@ -57,14 +64,14 @@ TEST_F(Validators, DirExistsRejectsNonexistent) {
 TEST_F(Validators, DirExistsAcceptsExisting) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-d", "directory").validator(clap::DirExists);
-    Argv a{"prog", "-d", dir.c_str()};
+    Argv a{"prog", "-d", dir.string()};
     expect_ok(app, a);
 }
 
 TEST_F(Validators, NonExistentPathRejectsExisting) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-o", "output").validator(clap::NonexistentPath);
-    Argv a{"prog", "-o", file.c_str()};
+    Argv a{"prog", "-o", file.string()};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
@@ -99,14 +106,14 @@ TEST_F(Validators, NonEmptyRejectsNonEmptyPath) {
 TEST_F(Validators, NonEmptyAcceptsNonEmptyPath) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-p", "path").validator(clap::NonEmpty);
-    Argv a{"prog", "-p", file.c_str()};
+    Argv a{"prog", "-p", file.string()};
     expect_ok(app, a);
 }
 
 TEST_F(Validators, FileExistsRejectsDirectory) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-f", "file").validator(clap::FileExists);
-    Argv a{"prog", "-f", dir.c_str()};
+    Argv a{"prog", "-f", dir.string()};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
     EXPECT_NE(app.error().find("is a directory"), std::string::npos);
 }
@@ -114,7 +121,7 @@ TEST_F(Validators, FileExistsRejectsDirectory) {
 TEST_F(Validators, DirExistsRejectsRegularFile) {
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-d", "directory").validator(clap::DirExists);
-    Argv a{"prog", "-d", file.c_str()};
+    Argv a{"prog", "-d", file.string()};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
     EXPECT_NE(app.error().find("is a regular file"), std::string::npos);
 }
@@ -123,18 +130,20 @@ TEST_F(Validators, DirExistsRejectsRegularFile) {
 // the name: creating there fails with EEXIST. NonexistentPath uses
 // symlink_status so it rejects one.
 TEST_F(Validators, NonExistentPathRejectsDanglingSymlink) {
+    if (!has_symlink) GTEST_SKIP() << "symlinks unavailable on this platform";
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-o", "output").validator(clap::NonexistentPath);
-    Argv a{"prog", "-o", dangling.c_str()};
+    Argv a{"prog", "-o", dangling.string()};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
 // FileExists and DirExists take the opposite view: the link resolves to
 // nothing, so there is no file and no directory there.
 TEST_F(Validators, FileExistsRejectsDanglingSymlink) {
+    if (!has_symlink) GTEST_SKIP() << "symlinks unavailable on this platform";
     clap::App app{"prog", "d"};
     app.option<std::filesystem::path>("-f", "file").validator(clap::FileExists);
-    Argv a{"prog", "-f", dangling.c_str()};
+    Argv a{"prog", "-f", dangling.string()};
     expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
