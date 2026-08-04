@@ -1041,10 +1041,10 @@ namespace clap {
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
-                          std::string_view footer = "")
+                          std::string_view footer = "", bool footer_wrap = true)
                 : _name(name), _description(description),
                   _options(options), _positionals(positionals), _examples(examples),
-                  _footer(footer) {}
+                  _footer(footer), _footer_wrap(footer_wrap) {}
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -1092,6 +1092,7 @@ namespace clap {
             const ArgList& _positionals;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
+            bool _footer_wrap;
     };
 }
 
@@ -1223,11 +1224,18 @@ namespace clap {
             }
 
             /// Add a footer to the help message. The footer is printed after the examples.
-            /// The footer is not wrapped, so it's up to the caller to format it properly.
+            /// By default, the footer wraps like the rest of the help text. If you want to
+            /// disable this behavior, call app.disable_footer_wrap() before calling this
+            /// method.
             /// The footer is optional and can be empty (wont be displayed)
             void footer(const std::string& footer) {
                 _footer = footer;
             }
+
+            /// Disable text's wrapping in the footer. I made this so rendering ascii
+            /// art in the footer works nicely, and regular footers dont need to be a
+            /// properly formatted string.
+            void disable_footer_wrap() { _footer_wrap = false; }
 
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
@@ -1262,6 +1270,7 @@ namespace clap {
 
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string _footer;
+            bool _footer_wrap;
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
@@ -1570,7 +1579,11 @@ inline std::string clap::HelpFormatter::help() const {
     }
     if (!_footer.empty()) {
         oss << "\n";
-        oss << _footer << "\n";
+        if (_footer_wrap)
+            for (const auto& line : wrap(std::string(_footer), _line_width))
+                oss << line << "\n";
+        else
+            oss << _footer << "\n";
     }
 
     return oss.str();
@@ -1686,7 +1699,8 @@ inline std::string clap::App::help() const {
         _arguments,
         _positionals,
         _examples,
-        _footer
+        _footer,
+        _footer_wrap
     ).help();
 }
 
@@ -1697,7 +1711,8 @@ inline std::string clap::App::usage() const {
         _arguments,
         _positionals,
         _examples,
-        _footer
+        _footer,
+        _footer_wrap
     ).usage();
 }
 
