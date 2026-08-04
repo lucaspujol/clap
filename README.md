@@ -159,6 +159,29 @@ on something only known at runtime, drop the default and read it with
 clap registers nothing behind your back. Register `-h,--help` yourself, print
 `app.help()` when it's set. The names stay yours (`examples/custom_help`).
 
+### Examples and a footer
+
+The option table says what exists, not how to use it. `app.example()` adds a
+command with an optional description; `app.footer()` is free text printed last.
+
+```cpp
+app.example("prog -n alice in.txt", "the usual case");
+app.example("prog --count=3 -vv in.txt");
+app.footer("see https://github.com/lucaspujol/clap");
+```
+
+```
+EXAMPLES:
+  # the usual case
+  > prog -n alice in.txt
+  > prog --count=3 -vv in.txt
+
+see https://github.com/lucaspujol/clap
+```
+
+Descriptions wrap at 80 columns like the rest of the help. The footer wraps too,
+unless you call `app.disable_footer_wrap()`.
+
 ### Positionals and variadics
 
 Positionals match by order, no dash.
