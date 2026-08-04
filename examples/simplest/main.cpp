@@ -44,7 +44,7 @@ int main(int argc, char** argv) {
     // always see the help message, even if the command line is broken
     //
     // if you want to check for parse errors first, feel free to do so: clap is designed
-    // to let the user keep control of the entire flow, so you get to decide what do do & when
+    // to let the user keep control of the entire flow, so you get to decide what to do & when
     if (help) {
         std::cout << app.help();
         return 0;
