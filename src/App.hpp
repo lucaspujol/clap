@@ -187,7 +187,7 @@ namespace clap {
 
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string _footer;
-            bool _footer_wrap;
+            bool _footer_wrap = true;
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
