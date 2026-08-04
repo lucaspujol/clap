@@ -48,6 +48,7 @@ namespace clap {
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
             virtual bool is_required() const noexcept { return _required; }
+            bool is_hidden() const noexcept { return _hidden; }
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
@@ -78,12 +79,14 @@ namespace clap {
 
         protected:
             void set_required() noexcept { _required = true; }
+            void set_hidden()   noexcept { _hidden   = true; }
 
         private:
             std::string _names_raw;
             std::vector<std::string> _names;
             std::string _description;
             bool _required = false;
+            bool _hidden = false;
             std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {
