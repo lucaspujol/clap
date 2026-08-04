@@ -307,6 +307,7 @@ namespace clap {
             std::string_view names() const noexcept { return _names_raw; }
             std::string_view description() const noexcept { return _description; }
             virtual bool is_required() const noexcept { return _required; }
+            bool is_hidden() const noexcept { return _hidden; }
 
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
@@ -337,12 +338,14 @@ namespace clap {
 
         protected:
             void set_required() noexcept { _required = true; }
+            void set_hidden()   noexcept { _hidden   = true; }
 
         private:
             std::string _names_raw;
             std::vector<std::string> _names;
             std::string _description;
             bool _required = false;
+            bool _hidden = false;
             std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {
@@ -748,6 +751,13 @@ namespace clap {
                 return self();
             }
 
+            /// Keep this argument out of the help text and the usage line.
+            /// It still parses exactly as before.
+            Derived& hidden() {
+                this->set_hidden();
+                return self();
+            }
+
         protected:
             /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
@@ -807,6 +817,13 @@ namespace clap {
             void reset() noexcept override {
                 _value = false;
                 _count = 0;
+            }
+
+            /// Keep this flag out of the help text and the usage line.
+            /// It still parses exactly as before.
+            Flag& hidden() {
+                set_hidden();
+                return *this;
             }
 
         private:
@@ -1042,9 +1059,15 @@ namespace clap {
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
                           std::string_view footer = "", bool footer_wrap = true)
-                : _name(name), _description(description),
-                  _options(options), _positionals(positionals), _examples(examples),
-                  _footer(footer), _footer_wrap(footer_wrap) {}
+                : _name(name), _description(description), _examples(examples),
+                  _footer(footer), _footer_wrap(footer_wrap) {
+                      for (const auto& o : options)
+                          if (!o->is_hidden())
+                              _options.push_back(o.get());
+                      for (const auto& p : positionals)
+                          if (!p->is_hidden())
+                              _positionals.push_back(p.get());
+                  }
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -1082,14 +1105,15 @@ namespace clap {
             std::string prefix_col(const Argument& arg, size_t name_w) const;
             std::string row(const Argument& arg, size_t name_w, size_t desc_col) const;
             std::vector<std::string> wrap(const std::string& text, size_t width) const;
-            std::string table(const ArgList& args, size_t name_w, size_t desc_col) const;
+            std::string table(const std::vector<const Argument*>& args, size_t name_w,
+                              size_t desc_col) const;
             size_t name_width() const;
             size_t desc_column() const;
 
             std::string_view _name;
             std::string_view _description;
-            const ArgList& _options;
-            const ArgList& _positionals;
+            std::vector<const Argument*> _options;
+            std::vector<const Argument*> _positionals;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
             bool _footer_wrap;
@@ -1497,8 +1521,8 @@ inline std::string clap::HelpFormatter::row(const clap::Argument& arg, size_t na
     return oss.str();
 }
 
-inline std::string clap::HelpFormatter::table(const ArgList& args, size_t name_w,
-                                              size_t desc_col) const {
+inline std::string clap::HelpFormatter::table(const std::vector<const Argument*>& args,
+                                              size_t name_w, size_t desc_col) const {
     std::ostringstream oss;
     for (const auto& a : args)
         oss << row(*a, name_w, desc_col);
@@ -1560,7 +1584,8 @@ inline std::string clap::HelpFormatter::help() const {
     if (!_positionals.empty())
         oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+    if (!_options.empty())
+        oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
 
     if (!_examples.empty()) {
         oss << "\nEXAMPLES:\n";
