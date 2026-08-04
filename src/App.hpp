@@ -1,5 +1,6 @@
 #pragma once
 
+#include "HelpFormatter.hpp"
 #include "Option.hpp"
 #include "Flag.hpp"
 #include "Positional.hpp"
@@ -133,6 +134,19 @@ namespace clap {
             /// One-line usage summary string.
             std::string usage() const;
 
+            /// Add an example usage line to the help message. The description is optional.
+            void example(const std::string& example, const std::string& description = "", std::source_location loc = std::source_location::current()) {
+                if (example.empty()) throw clap::ConfigError(loc, "example() cannot be called with an empty string");
+                _examples.emplace_back(example, description);
+            }
+
+            /// Add a footer to the help message. The footer is printed after the examples.
+            /// The footer is not wrapped, so it's up to the caller to format it properly.
+            /// The footer is optional and can be empty (wont be displayed)
+            void footer(const std::string& footer) {
+                _footer = footer;
+            }
+
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
             /// Which error parse() recorded. ErrorKind::OK before parse() runs and
@@ -163,6 +177,9 @@ namespace clap {
             std::string _error;
             ErrorKind _error_kind{ErrorKind::OK};
             bool _positional_mode = false;
+
+            std::vector<std::pair<std::string, std::string>> _examples;
+            std::string _footer;
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
