@@ -130,8 +130,8 @@ inline std::string clap::HelpFormatter::row(const clap::Argument& arg, size_t na
     return oss.str();
 }
 
-inline std::string clap::HelpFormatter::table(const ArgList& args, size_t name_w,
-                                              size_t desc_col) const {
+inline std::string clap::HelpFormatter::table(const std::vector<const Argument*>& args,
+                                              size_t name_w, size_t desc_col) const {
     std::ostringstream oss;
     for (const auto& a : args)
         oss << row(*a, name_w, desc_col);
@@ -193,7 +193,8 @@ inline std::string clap::HelpFormatter::help() const {
     if (!_positionals.empty())
         oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+    if (!_options.empty())
+        oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
 
     if (!_examples.empty()) {
         oss << "\nEXAMPLES:\n";

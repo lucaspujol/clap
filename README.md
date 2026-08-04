@@ -74,7 +74,7 @@ target_link_libraries(your_app PRIVATE clap::clap)
 Same `clap::clap` target as FetchContent gives you, so downstream code doesn't
 care which path it came from. The installed version is the one stamped into the
 header at release; a build from `main` says `dev` and installs as `0.0.0`, which
-satisfies no version request — install from a release tag if you want one.
+satisfies no version request: install from a release tag if you want one.
 
 ## Example
 
@@ -181,6 +181,24 @@ see https://github.com/lucaspujol/clap
 
 Descriptions wrap at 80 columns like the rest of the help. The footer wraps too,
 unless you call `app.disable_footer_wrap()`.
+
+### Hiding an argument
+
+`.hidden()` keeps an argument out of the help text and the usage line. It parses
+exactly as it would otherwise (used for deprecated spellings that still have to work,
+debug switches, and internal escape hatches).
+
+```cpp
+app.option<int>("-c,--count", "How many");
+app.option<int>("--legacy-count", "Old spelling, still works").hidden();
+app.flag("--debug", "Dump internal state").hidden();
+// --legacy-count=3 parses; help and usage never mention it.
+```
+
+Works on every kind, including positionals. A hidden name doesn't size the help
+columns either, so a long internal name won't push every other description right.
+Hiding is independent of `.required()`: a hidden required argument still errors
+when it's missing, it just isn't advertised.
 
 ### Positionals and variadics
 
@@ -472,7 +490,7 @@ int main(int argc, char** argv) {
 
 Each subcommand gets its own help, usage line and errors. The top-level app
 parses what comes *before* the subcommand name, and lists them in its
-description — clap has nothing to print them for you.
+description. clap has nothing to print them for you.
 
 That's the whole trick, and its whole extent: clap doesn't know these apps are
 related. No shared arguments, no `prog help commit`, no suggestion on a

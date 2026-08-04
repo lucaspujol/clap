@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Argument.hpp"
 #include <string>
 #include <string_view>
 #include <vector>
@@ -17,9 +18,15 @@ namespace clap {
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
                           std::string_view footer = "", bool footer_wrap = true)
-                : _name(name), _description(description),
-                  _options(options), _positionals(positionals), _examples(examples),
-                  _footer(footer), _footer_wrap(footer_wrap) {}
+                : _name(name), _description(description), _examples(examples),
+                  _footer(footer), _footer_wrap(footer_wrap) {
+                      for (const auto& o : options)
+                          if (!o->is_hidden())
+                              _options.push_back(o.get());
+                      for (const auto& p : positionals)
+                          if (!p->is_hidden())
+                              _positionals.push_back(p.get());
+                  }
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -57,14 +64,15 @@ namespace clap {
             std::string prefix_col(const Argument& arg, size_t name_w) const;
             std::string row(const Argument& arg, size_t name_w, size_t desc_col) const;
             std::vector<std::string> wrap(const std::string& text, size_t width) const;
-            std::string table(const ArgList& args, size_t name_w, size_t desc_col) const;
+            std::string table(const std::vector<const Argument*>& args, size_t name_w,
+                              size_t desc_col) const;
             size_t name_width() const;
             size_t desc_column() const;
 
             std::string_view _name;
             std::string_view _description;
-            const ArgList& _options;
-            const ArgList& _positionals;
+            std::vector<const Argument*> _options;
+            std::vector<const Argument*> _positionals;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
             bool _footer_wrap;

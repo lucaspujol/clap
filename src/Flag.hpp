@@ -36,6 +36,13 @@ namespace clap {
                 _count = 0;
             }
 
+            /// Keep this flag out of the help text and the usage line.
+            /// It still parses exactly as before.
+            Flag& hidden() {
+                set_hidden();
+                return *this;
+            }
+
         private:
             bool _value = false;
             int _count = 0;
