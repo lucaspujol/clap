@@ -1,8 +1,10 @@
-// Two related things:
+// Four related things:
 //
 //   HelpFlag  -h is nothing special. It is a flag the caller registers, and
 //             parse() keeps filling flags after an error so help can win.
 //   Usage     the generated usage line and the annotations in help text.
+//   Examples  the EXAMPLES block built from app.example() pairs.
+//   Footer    the free text app.footer() puts at the very end.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
@@ -13,6 +15,8 @@
 
 struct HelpFlag : StandardApp {};
 struct Usage    : StandardApp {};
+struct Examples : StandardApp {};
+struct Footer   : StandardApp {};
 
 // =============================================================================
 // The help flag:  -h/--help is just a flag the caller registers.
@@ -300,4 +304,131 @@ TEST_F(Usage, UsageUsesShortestNameWhateverTheOrder) {
     clap::App app{"prog", "d"};
     app.option<int>("--count,-c", "count");
     EXPECT_NE(app.usage().find("[-c <int>]"), std::string::npos);
+}
+
+// =============================================================================
+// Examples: pairs of (command, description). The description is optional and
+// renders as '#' comment lines above the '>' command line, wrapped like the
+// rest of the help.
+// =============================================================================
+
+namespace {
+    // The lines of a help block that start with the given prefix.
+    std::vector<std::string> lines_with_prefix(const std::string& help,
+                                               std::string_view prefix) {
+        std::vector<std::string> found;
+        for (const auto& line : lines_of(help))
+            if (line.rfind(prefix, 0) == 0)
+                found.push_back(line);
+        return found;
+    }
+}
+
+TEST_F(Examples, NoBlockWhenNoneRegistered) {
+    EXPECT_EQ(app.help().find("EXAMPLES:"), std::string::npos);
+}
+
+TEST_F(Examples, CommandRendersUnderTheBlock) {
+    app.example("prog -n alice in.txt");
+
+    const std::string help = app.help();
+    EXPECT_NE(help.find("EXAMPLES:"), std::string::npos);
+    EXPECT_NE(help.find("  > prog -n alice in.txt"), std::string::npos);
+}
+
+TEST_F(Examples, DescriptionPrecedesItsCommand) {
+    app.example("prog -n alice in.txt", "the usual case");
+
+    const std::vector<std::string> lines = lines_of(app.help());
+    const auto desc = std::find(lines.begin(), lines.end(), "  # the usual case");
+    ASSERT_NE(desc, lines.end());
+    ASSERT_NE(desc + 1, lines.end());
+    EXPECT_EQ(*(desc + 1), "  > prog -n alice in.txt");
+}
+
+TEST_F(Examples, DescriptionIsOptional) {
+    app.example("prog in.txt");
+    EXPECT_TRUE(lines_with_prefix(app.help(), "  # ").empty());
+}
+
+// wrap() returns lines without terminators, so the '#' loop has to add its own:
+// a description past one line used to come out as a single run-on line.
+TEST_F(Examples, LongDescriptionWrapsOntoSeveralCommentLines) {
+    app.example("prog in.txt",
+                "this description is deliberately very long so that it cannot fit on "
+                "one single line of eighty columns and has to wrap");
+
+    const std::vector<std::string> comments = lines_with_prefix(app.help(), "  # ");
+    ASSERT_EQ(comments.size(), 2u);
+    for (const auto& line : comments)
+        EXPECT_LE(line.size(), 80u);
+}
+
+// A described example gets a blank line above it so the pairs read apart, but
+// only between them: the first one sits right under the header.
+TEST_F(Examples, DescribedExamplesAreSeparatedByABlankLine) {
+    app.example("prog a", "first");
+    app.example("prog b", "second");
+
+    const std::vector<std::string> lines = lines_of(app.help());
+    const auto header = std::find(lines.begin(), lines.end(), "EXAMPLES:");
+    ASSERT_NE(header, lines.end());
+    EXPECT_EQ(*(header + 1), "  # first");
+    EXPECT_EQ(*(header + 2), "  > prog a");
+    EXPECT_EQ(*(header + 3), "");
+    EXPECT_EQ(*(header + 4), "  # second");
+}
+
+TEST_F(Examples, EmptyCommandRejected) {
+    EXPECT_THROW(app.example(""), clap::ConfigError);
+}
+
+// =============================================================================
+// Footer: free text printed last, wrapped by default.
+// =============================================================================
+
+TEST_F(Footer, PrintsLast) {
+    app.footer("see https://example.com");
+
+    const std::vector<std::string> lines = lines_of(app.help());
+    ASSERT_FALSE(lines.empty());
+    EXPECT_EQ(lines.back(), "see https://example.com");
+}
+
+TEST_F(Footer, EmptyFooterPrintsNothing) {
+    const std::string before = app.help();
+    app.footer("");
+    EXPECT_EQ(app.help(), before);
+}
+
+// Wrapping is on unless it is turned off. _footer_wrap is a plain bool member,
+// so a missing initialiser would make this depend on whatever was in memory.
+TEST_F(Footer, WrapsByDefault) {
+    app.footer("this footer is deliberately very long so that it cannot fit on one "
+               "single line of eighty columns and has to wrap");
+
+    EXPECT_LE(widest(app.help()), 80u);
+}
+
+// ASCII art must survive verbatim, which is the whole point of the opt-out.
+TEST_F(Footer, DisableFooterWrapKeepsTheTextVerbatim) {
+    const std::string art =
+        "this footer is deliberately very long so that it cannot fit on one "
+        "single line of eighty columns and has to wrap";
+    app.disable_footer_wrap();
+    app.footer(art);
+
+    const std::vector<std::string> lines = lines_of(app.help());
+    EXPECT_EQ(lines.back(), art);
+}
+
+// Both are setters read at help() time, so neither order changes the output.
+TEST_F(Footer, DisableFooterWrapWorksAfterFooter) {
+    const std::string art =
+        "this footer is deliberately very long so that it cannot fit on one "
+        "single line of eighty columns and has to wrap";
+    app.footer(art);
+    app.disable_footer_wrap();
+
+    EXPECT_EQ(lines_of(app.help()).back(), art);
 }
