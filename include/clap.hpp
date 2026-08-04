@@ -1039,9 +1039,12 @@ namespace clap {
             using ArgList = std::vector<std::unique_ptr<Argument>>;
 
             HelpFormatter(std::string_view name, std::string_view description,
-                          const ArgList& options, const ArgList& positionals)
+                          const ArgList& options, const ArgList& positionals,
+                          std::vector<std::pair<std::string, std::string>> examples,
+                          std::string_view footer = "")
                 : _name(name), _description(description),
-                  _options(options), _positionals(positionals) {}
+                  _options(options), _positionals(positionals), _examples(examples),
+                  _footer(footer) {}
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -1087,6 +1090,8 @@ namespace clap {
             std::string_view _description;
             const ArgList& _options;
             const ArgList& _positionals;
+            std::vector<std::pair<std::string, std::string>> _examples;
+            std::string_view _footer;
     };
 }
 
@@ -1211,6 +1216,19 @@ namespace clap {
             /// One-line usage summary string.
             std::string usage() const;
 
+            /// Add an example usage line to the help message. The description is optional.
+            void example(const std::string& example, const std::string& description = "", std::source_location loc = std::source_location::current()) {
+                if (example.empty()) throw clap::ConfigError(loc, "example() cannot be called with an empty string");
+                _examples.emplace_back(example, description);
+            }
+
+            /// Add a footer to the help message. The footer is printed after the examples.
+            /// The footer is not wrapped, so it's up to the caller to format it properly.
+            /// The footer is optional and can be empty (wont be displayed)
+            void footer(const std::string& footer) {
+                _footer = footer;
+            }
+
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
             /// Which error parse() recorded. ErrorKind::OK before parse() runs and
@@ -1242,6 +1260,9 @@ namespace clap {
             ErrorKind _error_kind{ErrorKind::OK};
             bool _positional_mode = false;
 
+            std::vector<std::pair<std::string, std::string>> _examples;
+            std::string _footer;
+
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
             Argument* find_argument(std::string_view name);
@@ -1268,6 +1289,7 @@ namespace clap {
 
 #include <algorithm>
 #include <cctype>
+#include <cstddef>
 #include <cstring>
 
 // ===== damerau_osa.cpp =====
@@ -1527,9 +1549,29 @@ inline std::string clap::HelpFormatter::help() const {
     const size_t desc_col = desc_column();
 
     if (!_positionals.empty())
-        oss << "\nPositionals:\n" << table(_positionals, name_w, desc_col);
+        oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    oss << "\nOptions:\n" << table(_options, name_w, desc_col);
+    oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+
+    if (!_examples.empty()) {
+        oss << "\nEXAMPLES:\n";
+        bool first = true;
+        for (const auto& [example, description] : _examples) {
+            if (!description.empty()) {
+                if (!first)
+                    oss << "\n";
+                for (const auto& line : wrap(description, _line_width - 4))
+                    oss << "  # " << line;
+                oss << "\n";
+            }
+            oss << "  > " << example << std::endl;
+            first = false;
+        }
+    }
+    if (!_footer.empty()) {
+        oss << "\n";
+        oss << _footer << "\n";
+    }
 
     return oss.str();
 }
@@ -1638,11 +1680,25 @@ inline bool clap::App::starts_with(std::string_view str, std::string_view prefix
 }
 
 inline std::string clap::App::help() const {
-    return HelpFormatter(_name, _description, _arguments, _positionals).help();
+    return HelpFormatter(
+        _name,
+        _description,
+        _arguments,
+        _positionals,
+        _examples,
+        _footer
+    ).help();
 }
 
 inline std::string clap::App::usage() const {
-    return HelpFormatter(_name, _description, _arguments, _positionals).usage();
+    return HelpFormatter(
+        _name,
+        _description,
+        _arguments,
+        _positionals,
+        _examples,
+        _footer
+    ).usage();
 }
 
 inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor, size_t index) {
