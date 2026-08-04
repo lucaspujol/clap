@@ -114,6 +114,7 @@ int main(int argc, char** argv) {
     app.example("./showcase -n alice -f toml in.txt", "choices error");
     app.example("./showcase in.txt", "missing required -n");
     app.example("SHOWCASE_TOKEN=hunter2 ./showcase -n alice in.txt");
+    app.disable_footer_wrap();
     app.footer(
         "  _________.__                  _________                       \n"
         " /   _____/|  |__   ______  _  _\\_   ___ \\_____    ______ ____  \n"

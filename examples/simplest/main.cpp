@@ -23,8 +23,8 @@ int main(int argc, char** argv) {
     app.example(std::string(argv[0]) + " john");
     app.example(std::string(argv[0]) + " -n 3 john --shout", "3 greets, uppercased");
     app.footer(
-        "simplest is a demo of the clap library. It shows how to register\n"
-        "arguments, parse them and access their values. I recommand starting\n"
+        "simplest is a demo of the clap library. It shows how to register "
+        "arguments, parse them and access their values. I recommand starting "
         "with this example and moving on to more specific/complex ones."
     );
 

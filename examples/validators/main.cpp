@@ -50,8 +50,8 @@
 int main(int argc, char **argv) {
     clap::App app(argv[0], "showcase the validator feature");
     app.footer(
-        "this program is a showcase of the validator feature. It shows\n"
-        "all the builtin validators, plus a custom one. It is obviously\n"
+        "this program is a showcase of the validator feature. It shows "
+        "all the builtin validators, plus a custom one. It is obviously "
         "not practical and you would never use all of them at once."
     );
 
