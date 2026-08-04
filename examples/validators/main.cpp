@@ -48,7 +48,12 @@
 #include <string>
 
 int main(int argc, char **argv) {
-    clap::App app("prog", "positional allocation");
+    clap::App app(argv[0], "showcase the validator feature");
+    app.footer(
+        "this program is a showcase of the validator feature. It shows\n"
+        "all the builtin validators, plus a custom one. It is obviously\n"
+        "not practical and you would never use all of them at once."
+    );
 
     auto& help = app.flag("-h,--help", "show this help and exit");
     auto& range = app.option<int>("-r,--range", "showcase the range validator")

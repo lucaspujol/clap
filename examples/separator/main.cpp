@@ -10,6 +10,9 @@
 
 int main(int argc, char** argv) {
     clap::App app(argv[0], "Demo of the -- positional separator");
+    app.example("./separator a.txt b.txt c.txt");
+    app.example("./separator --log -- -weird.txt --also-weird.txt normal.txt");
+    app.example("./separator -- -- b.txt", "second '--' is just a positional");
 
     auto& help = app.flag("-h,--help", "Show this help message");
     auto& log  = app.flag("-l,--log", "Enable logging");

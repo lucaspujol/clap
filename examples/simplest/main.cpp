@@ -19,6 +19,15 @@ int main(int argc, char** argv) {
     // step 2, create an app. first argument is program name, rest is description
     clap::App app(argv[0], "greet someone");
 
+    // bonus: add a few examples and a footer to the help message
+    app.example(std::string(argv[0]) + " john");
+    app.example(std::string(argv[0]) + " -n 3 john --shout", "3 greets, uppercased");
+    app.footer(
+        "simplest is a demo of the clap library. It shows how to register\n"
+        "arguments, parse them and access their values. I recommand starting\n"
+        "with this example and moving on to more specific/complex ones."
+    );
+
     // step 3, register arguments. clap has four kinds: flags, options, positionals and
     // value lists (variadic & multi_option).
     //

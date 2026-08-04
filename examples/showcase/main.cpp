@@ -108,6 +108,20 @@ static const char* kind_name(clap::ErrorKind kind) {
 
 int main(int argc, char** argv) {
     clap::App app(argv[0], "showcase: every clap feature in one program.");
+    app.example("./showcase -n alice in.txt");
+    app.example("./showcase -vv -n alice -p6767 -f yaml -t red -t blue --color=off in.txt beta a b c");
+    app.example("./showcase -n alice -p 99999 in.txt", "range error");
+    app.example("./showcase -n alice -f toml in.txt", "choices error");
+    app.example("./showcase in.txt", "missing required -n");
+    app.example("SHOWCASE_TOKEN=hunter2 ./showcase -n alice in.txt");
+    app.footer(
+        "  _________.__                  _________                       \n"
+        " /   _____/|  |__   ______  _  _\\_   ___ \\_____    ______ ____  \n"
+        " \\_____  \\ |  |  \\ /  _ \\ \\/ \\/ /    \\  \\/\\__  \\  /  ___// __ \\ \n"
+        " /        \\|   Y  (  <_> )     /\\     \\____/ __ \\_\\___ \\\\  ___/ \n"
+        "/_______  /|___|  /\\____/ \\/\\_/  \\______  (____  /____  >\\___  >\n"
+        "        \\/      \\/                      \\/     \\/     \\/     \\/ \n"
+    );
 
     auto& help    = app.flag("-h,--help", "show this help message");
     // a flag also counts its repeats, so -vvv is a verbosity level

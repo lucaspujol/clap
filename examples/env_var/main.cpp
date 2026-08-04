@@ -12,6 +12,10 @@
 
 int main(int argc, char **argv) {
     clap::App app(argv[0], "showcase of the env var fallback.");
+    app.example(argv[0], "8080 -> the default");
+    app.example("PORT=9000 " + std::string(argv[0]), "9000 -> the env");
+    app.example("PORT=9000 " + std::string(argv[0]) + "-p 3000", "3000 -> argv wins over the env");
+    app.example("PORT=nope " + std::string(argv[0]), "error, PORT is not an int");
 
     auto &help = app.flag("-h,--help", "show this help message");
     auto &port = app.option<int>("-p,--port", "port to listen on")
