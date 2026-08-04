@@ -14,9 +14,12 @@ namespace clap {
             using ArgList = std::vector<std::unique_ptr<Argument>>;
 
             HelpFormatter(std::string_view name, std::string_view description,
-                          const ArgList& options, const ArgList& positionals)
+                          const ArgList& options, const ArgList& positionals,
+                          std::vector<std::pair<std::string, std::string>> examples,
+                          std::string_view footer = "")
                 : _name(name), _description(description),
-                  _options(options), _positionals(positionals) {}
+                  _options(options), _positionals(positionals), _examples(examples),
+                  _footer(footer) {}
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -62,5 +65,7 @@ namespace clap {
             std::string_view _description;
             const ArgList& _options;
             const ArgList& _positionals;
+            std::vector<std::pair<std::string, std::string>> _examples;
+            std::string_view _footer;
     };
 }

@@ -2,6 +2,7 @@
 #include "Argument.hpp"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstring>
 #include <sstream>
 
@@ -190,9 +191,29 @@ inline std::string clap::HelpFormatter::help() const {
     const size_t desc_col = desc_column();
 
     if (!_positionals.empty())
-        oss << "\nPositionals:\n" << table(_positionals, name_w, desc_col);
+        oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    oss << "\nOptions:\n" << table(_options, name_w, desc_col);
+    oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+
+    if (!_examples.empty()) {
+        oss << "\nEXAMPLES:\n";
+        bool first = true;
+        for (const auto& [example, description] : _examples) {
+            if (!description.empty()) {
+                if (!first)
+                    oss << "\n";
+                for (const auto& line : wrap(description, _line_width - 4))
+                    oss << "  # " << line;
+                oss << "\n";
+            }
+            oss << "  > " << example << std::endl;
+            first = false;
+        }
+    }
+    if (!_footer.empty()) {
+        oss << "\n";
+        oss << _footer << "\n";
+    }
 
     return oss.str();
 }
