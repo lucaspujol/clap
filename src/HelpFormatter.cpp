@@ -203,10 +203,9 @@ inline std::string clap::HelpFormatter::help() const {
                 if (!first)
                     oss << "\n";
                 for (const auto& line : wrap(description, _line_width - 4))
-                    oss << "  # " << line;
-                oss << "\n";
+                    oss << "  # " << line << "\n";
             }
-            oss << "  > " << example << std::endl;
+            oss << "  > " << example << "\n";
             first = false;
         }
     }
