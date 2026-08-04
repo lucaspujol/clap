@@ -1,10 +1,11 @@
-// Four related things:
+// Five related things:
 //
 //   HelpFlag  -h is nothing special. It is a flag the caller registers, and
 //             parse() keeps filling flags after an error so help can win.
 //   Usage     the generated usage line and the annotations in help text.
 //   Examples  the EXAMPLES block built from app.example() pairs.
 //   Footer    the free text app.footer() puts at the very end.
+//   Hidden    .hidden(), which drops an argument from help but not from parse.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
@@ -17,6 +18,7 @@ struct HelpFlag : StandardApp {};
 struct Usage    : StandardApp {};
 struct Examples : StandardApp {};
 struct Footer   : StandardApp {};
+struct Hidden   : StandardApp {};
 
 // =============================================================================
 // The help flag:  -h/--help is just a flag the caller registers.
@@ -431,4 +433,80 @@ TEST_F(Footer, DisableFooterWrapWorksAfterFooter) {
     app.disable_footer_wrap();
 
     EXPECT_EQ(lines_of(app.help()).back(), art);
+}
+
+// =============================================================================
+// Hidden: deprecated spellings that still have to work, debug switches. The
+// argument parses exactly as it would otherwise; only the printing changes.
+//
+// HelpFormatter filters once, in its constructor, so hiding cannot leak into
+// one of the passes and not the others -- these tests pin each pass anyway.
+// =============================================================================
+
+TEST_F(Hidden, OptionIsAbsentFromHelpAndUsage) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "how many");
+    app.option<int>("--legacy-count", "the old spelling").hidden();
+
+    EXPECT_EQ(app.help().find("--legacy-count"), std::string::npos);
+    EXPECT_EQ(app.usage().find("--legacy-count"), std::string::npos);
+    EXPECT_NE(app.help().find("--count"), std::string::npos);
+}
+
+TEST_F(Hidden, FlagStillParses) {
+    clap::App app{"prog", "d"};
+    auto& debug = app.flag("--debug", "internal").hidden();
+
+    expect_ok(app, {"prog", "--debug"});
+    EXPECT_TRUE(debug);
+}
+
+TEST_F(Hidden, OptionStillParses) {
+    clap::App app{"prog", "d"};
+    auto& legacy = app.option<int>("--legacy-count", "the old spelling").hidden();
+
+    expect_ok(app, {"prog", "--legacy-count=7"});
+    EXPECT_EQ(legacy.get(), 7);
+}
+
+// Hiding is orthogonal to requiredness: it drops out of the usage line but
+// check_required() still fires, so a script relying on it keeps its error.
+TEST_F(Hidden, RequiredHiddenIsStillEnforced) {
+    clap::App app{"prog", "d"};
+    app.option<int>("--legacy-count", "the old spelling").hidden().required();
+
+    EXPECT_EQ(app.usage().find("--legacy-count"), std::string::npos);
+    expect_error(app, {"prog"}, clap::ErrorKind::MissingRequiredValue);
+}
+
+// The positional list is filtered too, and its header is already guarded on
+// the list being empty -- which is now emptiable.
+TEST_F(Hidden, PositionalIsAbsentButStillTakesItsSlot) {
+    clap::App app{"prog", "d"};
+    auto& secret = app.positional<std::string>("secret", "internal").hidden();
+
+    EXPECT_EQ(app.help().find("secret"), std::string::npos);
+    EXPECT_EQ(app.help().find("POSITIONALS:"), std::string::npos);
+
+    expect_ok(app, {"prog", "value"});
+    EXPECT_EQ(secret.get(), "value");
+}
+
+// The header would otherwise print with no rows under it.
+TEST_F(Hidden, EveryOptionHiddenDropsTheOptionsHeader) {
+    clap::App app{"prog", "d"};
+    app.flag("--debug", "internal").hidden();
+
+    EXPECT_EQ(app.help().find("OPTIONS:"), std::string::npos);
+}
+
+// The reason the filter has to happen before name_width()/desc_column(): a
+// hidden name is not printed, so it must not size the columns either.
+TEST_F(Hidden, LongHiddenNameDoesNotMoveTheOtherDescriptions) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "how many");
+    const size_t before = desc_column_of(app.help(), "how many");
+
+    app.option<int>("-n,--an-absurdly-long-option-name-here", "something else").hidden();
+    EXPECT_EQ(desc_column_of(app.help(), "how many"), before);
 }
