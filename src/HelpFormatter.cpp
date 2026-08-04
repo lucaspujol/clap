@@ -212,7 +212,11 @@ inline std::string clap::HelpFormatter::help() const {
     }
     if (!_footer.empty()) {
         oss << "\n";
-        oss << _footer << "\n";
+        if (_footer_wrap)
+            for (const auto& line : wrap(std::string(_footer), _line_width))
+                oss << line << "\n";
+        else
+            oss << _footer << "\n";
     }
 
     return oss.str();

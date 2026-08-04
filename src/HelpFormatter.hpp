@@ -16,10 +16,10 @@ namespace clap {
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
-                          std::string_view footer = "")
+                          std::string_view footer = "", bool footer_wrap = true)
                 : _name(name), _description(description),
                   _options(options), _positionals(positionals), _examples(examples),
-                  _footer(footer) {}
+                  _footer(footer), _footer_wrap(footer_wrap) {}
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -67,5 +67,6 @@ namespace clap {
             const ArgList& _positionals;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
+            bool _footer_wrap;
     };
 }

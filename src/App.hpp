@@ -141,11 +141,18 @@ namespace clap {
             }
 
             /// Add a footer to the help message. The footer is printed after the examples.
-            /// The footer is not wrapped, so it's up to the caller to format it properly.
+            /// By default, the footer wraps like the rest of the help text. If you want to
+            /// disable this behavior, call app.disable_footer_wrap() before calling this
+            /// method.
             /// The footer is optional and can be empty (wont be displayed)
             void footer(const std::string& footer) {
                 _footer = footer;
             }
+
+            /// Disable text's wrapping in the footer. I made this so rendering ascii
+            /// art in the footer works nicely, and regular footers dont need to be a
+            /// properly formatted string.
+            void disable_footer_wrap() { _footer_wrap = false; }
 
             /// The error text to print (message + usage line), empty when parse() succeeded.
             const std::string& error() const noexcept { return _error; }
@@ -180,6 +187,7 @@ namespace clap {
 
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string _footer;
+            bool _footer_wrap;
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);

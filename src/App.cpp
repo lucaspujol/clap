@@ -118,7 +118,8 @@ inline std::string clap::App::help() const {
         _arguments,
         _positionals,
         _examples,
-        _footer
+        _footer,
+        _footer_wrap
     ).help();
 }
 
@@ -129,7 +130,8 @@ inline std::string clap::App::usage() const {
         _arguments,
         _positionals,
         _examples,
-        _footer
+        _footer,
+        _footer_wrap
     ).usage();
 }
 
