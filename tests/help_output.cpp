@@ -7,6 +7,10 @@
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
 
+#include <algorithm>
+#include <cstring>
+#include <sstream>
+
 struct HelpFlag : StandardApp {};
 struct Usage    : StandardApp {};
 
@@ -107,11 +111,21 @@ TEST_F(Usage, RequiredPositionalNotBracketed) {
     EXPECT_EQ(app.usage(), "Usage: prog <scene>");
 }
 
-// Past the limit the optional options stop being a summary and collapse. The
-// standard app sits at five, one under, so it still prints them all.
-TEST_F(Usage, ManyOptionalOptionsCollapse) {
+// What triggers the collapse is the usage running past two lines, not a count
+// of options: six one-letter flags fit on one line and stay spelled out.
+TEST_F(Usage, ManyShortOptionsDoNotCollapse) {
     clap::App app{"prog", "d"};
     for (const char* name : {"-a", "-b", "-c", "-d", "-e", "-f"})
+        app.flag(name, "f");
+    EXPECT_EQ(app.usage(), "Usage: prog [-a] [-b] [-c] [-d] [-e] [-f]");
+}
+
+TEST_F(Usage, UsagePastTwoLinesCollapses) {
+    clap::App app{"prog", "d"};
+    for (const char* name : {"--alpha-option", "--beta-option", "--gamma-option",
+                             "--delta-option", "--epsilon-option", "--zeta-option",
+                             "--eta-option", "--theta-option", "--iota-option",
+                             "--kappa-option", "--lambda-option", "--sigma-option"})
         app.flag(name, "f");
     EXPECT_EQ(app.usage(), "Usage: prog [OPTIONS]");
 }
@@ -119,7 +133,10 @@ TEST_F(Usage, ManyOptionalOptionsCollapse) {
 // The shape of the command is what survives: required options and positionals.
 TEST_F(Usage, CollapseKeepsRequiredOptionsAndPositionals) {
     clap::App app{"prog", "d"};
-    for (const char* name : {"-a", "-b", "-c", "-d", "-e", "-f"})
+    for (const char* name : {"--alpha-option", "--beta-option", "--gamma-option",
+                             "--delta-option", "--epsilon-option", "--zeta-option",
+                             "--eta-option", "--theta-option", "--iota-option",
+                             "--kappa-option", "--lambda-option", "--sigma-option"})
         app.flag(name, "f");
     app.option<int>("-j,--jobs", "jobs").required();
     app.positional<std::string>("input", "in");
@@ -155,6 +172,127 @@ TEST_F(Usage, HelpAnnotatesEnvFallback) {
     clap::App app{"prog", "d"};
     app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
     EXPECT_NE(app.help().find("(env: TEST_COUNT)"), std::string::npos);
+}
+
+// =============================================================================
+// Layout: the widths are measured over the rows that fit, and everything wraps
+// at 80 columns rather than letting the terminal do it (#41).
+// =============================================================================
+
+namespace {
+    // Every line of a block, so a test can assert on the geometry.
+    std::vector<std::string> lines_of(const std::string& text) {
+        std::vector<std::string> lines;
+        std::istringstream stream(text);
+        for (std::string line; std::getline(stream, line);)
+            lines.push_back(line);
+        return lines;
+    }
+
+    size_t widest(const std::string& text) {
+        size_t max_w = 0;
+        for (const auto& line : lines_of(text))
+            max_w = std::max(max_w, line.size());
+        return max_w;
+    }
+
+    // Where the description starts on the line carrying it.
+    size_t desc_column_of(const std::string& help, std::string_view needle) {
+        for (const auto& line : lines_of(help)) {
+            const size_t at = line.find(needle);
+            if (at != std::string::npos)
+                return at;
+        }
+        return std::string::npos;
+    }
+}
+
+TEST_F(Usage, LongDescriptionWrapsAtEighty) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-r,--retry-backoff",
+                       "multiplier applied to the delay between retries when the remote "
+                       "returns 5xx or the connection drops midway")
+        .default_value(1.5);
+    EXPECT_LE(widest(app.help()), 80u);
+}
+
+TEST_F(Usage, LongUsageLineWrapsAtEighty) {
+    clap::App app{"prog", "d"};
+    for (const char* name : {"-a,--alpha", "-b,--beta", "-c,--gamma", "-d,--delta"})
+        app.option<std::string>(name, "d").required();
+    EXPECT_LE(widest(app.usage()), 80u);
+}
+
+TEST_F(Usage, WrappedDescriptionLinesAlignUnderTheFirst) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count",
+                    "how many times to repeat the operation before it is considered "
+                    "finished and the program exits");
+    const std::vector<std::string> lines = lines_of(app.help());
+
+    const size_t first = desc_column_of(app.help(), "how many");
+    ASSERT_NE(first, std::string::npos);
+    for (const auto& line : lines)
+        if (line.find("considered") != std::string::npos ||
+            line.find("exits") != std::string::npos) {
+            EXPECT_EQ(line.find_first_not_of(' '), first);
+        }
+}
+
+// The point of measuring only the rows that fit: one huge name used to widen
+// the column for every other row, which then pushed them all past the cap.
+TEST_F(Usage, OneLongNameDoesNotMoveTheOtherDescriptions) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "how many");
+    const size_t before = desc_column_of(app.help(), "how many");
+
+    app.option<int>("-n,--an-absurdly-long-option-name-here", "something else");
+    EXPECT_EQ(desc_column_of(app.help(), "how many"), before);
+}
+
+// That long row is the one that pays: its description goes on the next line,
+// still in the description column.
+TEST_F(Usage, OversizedRowPutsItsDescriptionBelow) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "how many");
+    app.option<int>("-n,--an-absurdly-long-option-name-here", "something else");
+
+    for (const auto& line : lines_of(app.help())) {
+        if (line.find("--an-absurdly-long") == std::string::npos)
+            continue;
+        EXPECT_EQ(line.find("something else"), std::string::npos);
+    }
+    EXPECT_EQ(desc_column_of(app.help(), "something else"),
+              desc_column_of(app.help(), "how many"));
+}
+
+// Nothing fits, so nothing sizes the column and it falls back to the cap.
+TEST_F(Usage, EveryNameTooLongFallsBackToTheCap) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-a,--an-absurdly-long-option-name-here", "first");
+    app.option<int>("-b,--another-absurdly-long-option-name", "second");
+
+    const size_t first = desc_column_of(app.help(), "first");
+    EXPECT_NE(first, std::string::npos);
+    EXPECT_EQ(desc_column_of(app.help(), "second"), first);
+}
+
+TEST_F(Usage, EmptyAppDescriptionIsNotAWrappingError) {
+    clap::App app{"prog", ""};
+    app.flag("-v,--verbose", "loud");
+    EXPECT_NE(app.help().find("-v,--verbose"), std::string::npos);
+}
+
+// argv[0] is often a path, and aligning under it would leave no room, so the
+// continuation goes under the program name instead.
+TEST_F(Usage, LongProgramNameDropsTheAlignedIndent) {
+    clap::App app{"./some/deep/directory/tree/with/a/long/prog-name", "d"};
+    for (const char* name : {"-a,--alpha", "-b,--beta", "-c,--gamma", "-d,--delta"})
+        app.option<std::string>(name, "d").required();
+
+    const std::vector<std::string> lines = lines_of(app.usage());
+    ASSERT_GT(lines.size(), 1u);
+    EXPECT_EQ(lines[1].find_first_not_of(' '), std::strlen("Usage: "));
 }
 
 // primary_name(), used in usage() is the shortest registered name.
