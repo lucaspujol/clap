@@ -44,7 +44,7 @@
 clap_tests
 
 # cmake
-build/
+build*/
 
 # generated docs (assets in docs/ stay tracked)
 docs/generated/
@@ -60,7 +60,6 @@ examples/testing/*
 
 # temp dir
 temp/
-build-cov/
 .cache/
 
 # tuxedo todo
