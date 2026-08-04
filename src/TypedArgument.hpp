@@ -76,6 +76,13 @@ namespace clap {
                 return self();
             }
 
+            /// Keep this argument out of the help text and the usage line.
+            /// It still parses exactly as before.
+            Derived& hidden() {
+                this->set_hidden();
+                return self();
+            }
+
         protected:
             /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
