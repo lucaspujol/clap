@@ -112,11 +112,27 @@ inline bool clap::App::starts_with(std::string_view str, std::string_view prefix
 }
 
 inline std::string clap::App::help() const {
-    return HelpFormatter(_name, _description, _arguments, _positionals).help();
+    return HelpFormatter(
+        _name,
+        _description,
+        _arguments,
+        _positionals,
+        _examples,
+        _footer,
+        _footer_wrap
+    ).help();
 }
 
 inline std::string clap::App::usage() const {
-    return HelpFormatter(_name, _description, _arguments, _positionals).usage();
+    return HelpFormatter(
+        _name,
+        _description,
+        _arguments,
+        _positionals,
+        _examples,
+        _footer,
+        _footer_wrap
+    ).usage();
 }
 
 inline void clap::App::dispatch(std::string_view token, ArgCursor& cursor, size_t index) {

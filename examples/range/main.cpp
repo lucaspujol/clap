@@ -9,7 +9,7 @@ int main(int argc, char **argv) {
 
     auto &help = app.flag("-h,--help", "show this help message");
     auto &players = app.option<int>("-p,--players", "number of players per team")
-                       .range(1, 8)
+                       .range(1, 8)         // pick the range available for the user
                        .required();
     
     bool ok = app.parse(argc, argv);
@@ -17,10 +17,12 @@ int main(int argc, char **argv) {
     if (!ok)  { std::cerr << app.error(); return 1; }
 
     int players_per_team = players.get();
-    // if (players_per_team < 1 || players_per_team > 8) {
-    //     std::cerr << "invalid number of players: must be between 1 & 8" << std::endl;
-    //     return 1;
-    // }
+    #if 0       // how you would do it normally
+    if (players_per_team < 1 || players_per_team > 8) {
+        std::cerr << "invalid number of players: must be between 1 & 8" << std::endl;
+        return 1;
+    }
+    #endif
     std::cout << "players per team: " << players_per_team << std::endl;
     return 0;
 }

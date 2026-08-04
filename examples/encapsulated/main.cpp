@@ -23,8 +23,6 @@
 // in addition, to avoid verbosity in code, i added a config struct to snapshot
 // to plain values. this is optional, this just transforms args.port.get() into cfg.port
 //
-//   ./struct_args -p6767 -s10 -n TeamA -n TeamB -d arena.conf
-//
 // This is, as of now, my favorite way to encapsulate clap; slightly more verbose but also
 // more explicit and easier to read. I like the idea of having a single struct that
 // contains all the arguments, and then a snapshot to plain values. This is also more
@@ -36,7 +34,8 @@
 
 // ---- Pattern A: the schema struct ------------------------------------------
 struct Args {
-    clap::App app{"struct_args", "define your flags as a struct, JAI-style."};
+    static constexpr std::string name = "encapsulated";
+    clap::App app{name, "define your flags as a struct, JAI-style."};
 
     clap::Flag& debug = app.flag("-d,--debug", "enable debug logging");
     clap::Option<int>& port = app.option<int>("-p,--port", "server port").default_value(8080);
@@ -48,7 +47,11 @@ struct Args {
     clap::Flag& help = app.flag("-h,--help", "show this help message");
 
     bool ok;
-    Args(int argc, char** argv) { ok = app.parse(argc, argv); }
+    Args(int argc, char** argv) {
+        app.example(name + "--size 10 -n solo input.txt");
+        app.example(name + " -d -p 8080 -s 100 -e 10 -n team1 -n team2 input.txt -o output.txt");
+        ok = app.parse(argc, argv);
+    }
 };
 
 // ---- Pattern B: snapshot to plain values -----------------------------------

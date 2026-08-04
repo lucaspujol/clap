@@ -7,6 +7,8 @@
 
 int main(int argc, char** argv) {
     clap::App app(argv[0], "Custom help flag");
+    app.example("./custom_help -h");
+    app.example("./custom_help -?");
 
     auto& help = app.flag("-?,--help", "Show this help message");
     auto& host = app.flag("-h,--host", "Server host");

@@ -17,7 +17,7 @@
 // simple parser for simple command lines. This example is just to show that it is
 // possible to implement subcommands with clap, but it may not be the best tool for
 // complex command line interfaces: it might lack important features, and your code
-// WILL become messy. If you absolutely need subcommands, consider using another 
+// WILL become messy. If you absolutely need subcommands, consider using another
 // library that is designed for that purpose, such as CLI11 or cxxopts.
 #include "clap.hpp"
 
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
         "run '<subcommand> --help' for the arguments of one.");
 
     auto &help    = app.flag("-h,--help", "show this help message");
-    auto &version = app.flag("-V,--version", "show the version and exit");
+    auto &version = app.flag("-v,--version", "show the version and exit");
 
     // No subcommand: only the top-level arguments are in play.
     if (argc < 2) {
