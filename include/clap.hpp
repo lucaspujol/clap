@@ -1270,7 +1270,7 @@ namespace clap {
 
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string _footer;
-            bool _footer_wrap;
+            bool _footer_wrap = true;
 
             void add_argument(std::unique_ptr<Argument> arg);
             void add_positional(std::unique_ptr<Argument> pos);
@@ -1570,10 +1570,9 @@ inline std::string clap::HelpFormatter::help() const {
                 if (!first)
                     oss << "\n";
                 for (const auto& line : wrap(description, _line_width - 4))
-                    oss << "  # " << line;
-                oss << "\n";
+                    oss << "  # " << line << "\n";
             }
-            oss << "  > " << example << std::endl;
+            oss << "  > " << example << "\n";
             first = false;
         }
     }
