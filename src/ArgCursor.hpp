@@ -26,7 +26,7 @@ namespace clap {
 
             /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
-                return has_next() && (peek().empty() || peek().front() != '-');
+                return has_next() && (peek().empty() || peek() == "-" || peek().front() != '-');
             }
 
         private:
