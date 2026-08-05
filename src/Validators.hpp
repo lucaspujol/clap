@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <initializer_list>
 #include <ios>
+#include <locale>
 #include <string>
 #include <sstream>
 #include <system_error>
@@ -28,6 +29,7 @@ namespace clap {
 
                 std::string label() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << _lo << ".." << _hi;
                     return oss.str();
                 }
@@ -52,6 +54,7 @@ namespace clap {
 
                 std::string label() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha;
                     bool first = true;
                     for (const auto& current : _choices) {
@@ -82,6 +85,7 @@ namespace clap {
 
                 std::string hint() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << ">= " << _min;
                     return oss.str();
                 }
@@ -104,6 +108,7 @@ namespace clap {
 
                 std::string hint() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << "<= " << _max;
                     return oss.str();
                 }

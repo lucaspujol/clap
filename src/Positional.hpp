@@ -1,5 +1,6 @@
 #pragma once
 
+#include <locale>
 #include <string>
 #include <optional>
 #include <sstream>
@@ -35,6 +36,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
+                oss.imbue(std::locale::classic());
                 oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }

@@ -3,6 +3,7 @@
 #include "ClapExceptions.hpp"
 #include "TypedArgument.hpp"
 
+#include <locale>
 #include <sstream>
 #include <vector>
 
@@ -47,6 +48,7 @@ namespace clap {
         std::string default_str() const override {
             if (_default_values.empty()) return "";
             std::ostringstream oss;
+            oss.imbue(std::locale::classic());
             oss << std::boolalpha;
             for (size_t i = 0; i < _default_values.size(); ++i) {
                 if (i) oss << ',';
