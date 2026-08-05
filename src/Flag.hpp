@@ -43,6 +43,13 @@ namespace clap {
                 return *this;
             }
 
+            /// File this flag under a named section of the help instead of the
+            /// default one. The name prints verbatim, casing included.
+            Flag& group(std::string name) {
+                set_group(std::move(name));
+                return *this;
+            }
+
         private:
             bool _value = false;
             int _count = 0;
