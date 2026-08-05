@@ -190,13 +190,11 @@ inline bool clap::App::parse(const std::vector<std::string>& args) {
     // Runs even after a failure, so the values that did parse still fill in.
     assign_positionals(failures);
 
-    if (failures.empty()) {
-        for (auto& arg : _arguments) {
-            try {
-                arg->resolve_env();
-            } catch (const clap::ParseException& e) {
-                failures.push_back({after_argv, e.kind(), e.what()});
-            }
+    for (auto& arg : _arguments) {
+        try {
+            arg->resolve_env();
+        } catch (const clap::ParseException& e) {
+            failures.push_back({after_argv, e.kind(), e.what()});
         }
     }
 
