@@ -19,6 +19,7 @@ namespace clap {
             Option(std::string names, std::string description)
             : TypedArgument<T, Option<T>>(std::move(names), std::move(description)) {}
 
+            using Argument::parse;
             void parse(std::string_view value, bool discard) override {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);

@@ -19,6 +19,7 @@ namespace clap {
             Positional(std::string names, std::string description)
             : TypedArgument<T, Positional<T>>(std::move(names), std::move(description)) {}
 
+            using Argument::parse;
             void parse(std::string_view value, bool) override {
                 _value = this->parse_value(value);
             }
