@@ -303,7 +303,7 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
         auto *arg = find_argument(short_name);
         if (!arg)
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
-        if (!arg->takes_value() && token[j + 1] == '=')
+        if (!arg->takes_value() && j + 1 < token.size() && token[j + 1] == '=')
             throw clap::UnexpectedValue(short_name);
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
