@@ -92,3 +92,10 @@ TEST_F(Registration, GroupOnMultiOptionAccepted) {
     clap::App app{"prog", "d"};
     EXPECT_NO_THROW(app.multi_option<std::string>("-t,--tag", "d").group("Net"));
 }
+
+TEST_F(Registration, NonAsciiLongNameAccepted) {
+    clap::App app{"prog", "d"};
+    auto& cafe = app.flag("--café", "c");
+    expect_ok(app, {"prog", "--café"});
+    EXPECT_TRUE(cafe);
+}
