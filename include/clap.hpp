@@ -31,6 +31,7 @@
 #define CLAP_VERSION "dev"
 
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
 #include <exception>
 #include <filesystem>
@@ -38,6 +39,7 @@
 #include <initializer_list>
 #include <ios>
 #include <istream>
+#include <locale>
 #include <memory>
 #include <optional>
 #include <ostream>
@@ -278,7 +280,8 @@ namespace clap {
             /// Consume a raw token as this argument's value. When discard is
             /// true the token is still validated but the result is thrown away,
             /// leaving the argument unset (used by the -/flag override syntax).
-            virtual void parse(std::string_view value, bool discard = false) = 0;
+            virtual void parse(std::string_view value, bool discard) = 0;
+            void parse(std::string_view value) { parse(value, false); }
             /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
@@ -405,7 +408,7 @@ namespace clap {
 
             /// True if a next token exists and does not look like a flag.
             bool next_is_value() const noexcept {
-                return has_next() && (peek().empty() || peek().front() != '-');
+                return has_next() && (peek().empty() || peek() == "-" || peek().front() != '-');
             }
 
         private:
@@ -431,6 +434,9 @@ namespace clap {
                     throw clap::ParseError("out of range");
                 if (ptr != last)
                     throw clap::ParseError("");
+                if constexpr (std::is_floating_point_v<T>)
+                    if (!std::isfinite(val))
+                        throw clap::ParseError("must be finite");
                 return val;
             } else {
                 std::istringstream iss{std::string(str)};
@@ -508,6 +514,7 @@ namespace clap {
 
                 std::string label() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << _lo << ".." << _hi;
                     return oss.str();
                 }
@@ -532,6 +539,7 @@ namespace clap {
 
                 std::string label() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha;
                     bool first = true;
                     for (const auto& current : _choices) {
@@ -562,6 +570,7 @@ namespace clap {
 
                 std::string hint() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << ">= " << _min;
                     return oss.str();
                 }
@@ -584,6 +593,7 @@ namespace clap {
 
                 std::string hint() const {
                     std::ostringstream oss;
+                    oss.imbue(std::locale::classic());
                     oss << std::boolalpha << "<= " << _max;
                     return oss.str();
                 }
@@ -830,6 +840,7 @@ namespace clap {
 
             operator bool() const noexcept { return _value; }
 
+            using Argument::parse;
             void parse(std::string_view, bool discard) noexcept override {
                 if (!discard) {
                     _value = true;
@@ -882,6 +893,7 @@ namespace clap {
             Option(std::string names, std::string description)
             : TypedArgument<T, Option<T>>(std::move(names), std::move(description)) {}
 
+            using Argument::parse;
             void parse(std::string_view value, bool discard) override {
                 auto v = this->parse_value(value);
                 if (!discard) _value = std::move(v);
@@ -900,6 +912,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
+                oss.imbue(std::locale::classic());
                 oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }
@@ -978,6 +991,7 @@ namespace clap {
         ValueList(std::string names, std::string description)
         : TypedArgument<T, ValueList<T>>(std::move(names), std::move(description)) {}
 
+        using Argument::parse;
         void parse(std::string_view value, bool discard) override {
             auto v = this->parse_value(value);
             if (!discard) _values.push_back(std::move(v));
@@ -1007,6 +1021,7 @@ namespace clap {
         std::string default_str() const override {
             if (_default_values.empty()) return "";
             std::ostringstream oss;
+            oss.imbue(std::locale::classic());
             oss << std::boolalpha;
             for (size_t i = 0; i < _default_values.size(); ++i) {
                 if (i) oss << ',';
@@ -1047,6 +1062,7 @@ namespace clap {
             Positional(std::string names, std::string description)
             : TypedArgument<T, Positional<T>>(std::move(names), std::move(description)) {}
 
+            using Argument::parse;
             void parse(std::string_view value, bool) override {
                 _value = this->parse_value(value);
             }
@@ -1064,6 +1080,7 @@ namespace clap {
             std::string default_str() const override {
                 if (!_default_value.has_value()) return "";
                 std::ostringstream oss;
+                oss.imbue(std::locale::classic());
                 oss << std::boolalpha << _default_value.value();
                 return oss.str();
             }
@@ -1361,6 +1378,7 @@ namespace clap {
 #include <cctype>
 #include <cstddef>
 #include <cstring>
+#include <iostream>
 
 // ===== damerau_osa.cpp =====
 // Names shorter than this are not compared: at one or two characters every
@@ -1681,11 +1699,19 @@ inline std::string clap::HelpFormatter::help() const {
 
 // ===== App.cpp =====
 namespace clap::detail {
+    inline bool is_name_char(char c) {
+        auto u = static_cast<unsigned char>(c);
+        return u >= 0x80
+            || (u >= '0' && u <= '9')
+            || (u >= 'a' && u <= 'z')
+            || (u >= 'A' && u <= 'Z');
+    }
+
     inline bool is_long_body(std::string_view body) {
-        if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
+        if (body.empty() || !is_name_char(body[0]))
             return false;
         for (char c : body)
-            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+            if (!is_name_char(c) && c != '-' && c != '_')
                 return false;
         return true;
     }
@@ -1860,13 +1886,11 @@ inline bool clap::App::parse(const std::vector<std::string>& args) {
     // Runs even after a failure, so the values that did parse still fill in.
     assign_positionals(failures);
 
-    if (failures.empty()) {
-        for (auto& arg : _arguments) {
-            try {
-                arg->resolve_env();
-            } catch (const clap::ParseException& e) {
-                failures.push_back({after_argv, e.kind(), e.what()});
-            }
+    for (auto& arg : _arguments) {
+        try {
+            arg->resolve_env();
+        } catch (const clap::ParseException& e) {
+            failures.push_back({after_argv, e.kind(), e.what()});
         }
     }
 
@@ -1968,6 +1992,8 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
         auto *arg = find_argument(short_name);
         if (!arg)
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
+        if (!arg->takes_value() && token[j + 1] == '=')
+            throw clap::UnexpectedValue(short_name);
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
             if (!attached.empty()) {
