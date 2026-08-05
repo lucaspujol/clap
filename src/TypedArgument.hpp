@@ -83,6 +83,20 @@ namespace clap {
                 return self();
             }
 
+            /// File this argument under a named section of the help instead of
+            /// the default one. The name prints verbatim, casing included.
+            ///
+            /// Positionals cannot be grouped. This class backs positional("x")
+            /// and variadic("x") as well as option("-x"), so the refusal is a
+            /// runtime check on where App filed it rather than an absent method.
+            Derived& group(std::string name) {
+                if (this->is_positional())
+                    throw clap::ConfigError(this->location(),
+                        "group() is not available on positionals");
+                this->set_group(std::move(name));
+                return self();
+            }
+
         protected:
             /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {

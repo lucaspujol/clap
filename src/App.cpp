@@ -67,6 +67,7 @@ inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
 }
 
 inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+    pos->mark_positional();
     const auto& names = pos->raw_names();
     if (names.size() != 1)
         throw clap::ConfigError(pos->location(),

@@ -72,3 +72,23 @@ TEST_F(Registration, ShortNameWithReservedCharRejected) {
     EXPECT_THROW(app.option<int>("-/", "x"), clap::ConfigError);
     EXPECT_THROW(app.option<int>("-=", "y"), clap::ConfigError);
 }
+
+// group() only means something for options. Positionals are ordered, and that
+// order is all their block conveys. ValueList backs both multi_option and
+// variadic, so the refusal cannot be a missing method: App marks the argument
+// when it files it, and group() reads the mark.
+TEST_F(Registration, GroupOnPositionalRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.positional<std::string>("input", "d").group("Net"), clap::ConfigError);
+}
+
+TEST_F(Registration, GroupOnVariadicRejected) {
+    clap::App app{"prog", "d"};
+    EXPECT_THROW(app.variadic<std::string>("files", "d").group("Net"), clap::ConfigError);
+}
+
+// The same class as the variadic above, filed as an option instead.
+TEST_F(Registration, GroupOnMultiOptionAccepted) {
+    clap::App app{"prog", "d"};
+    EXPECT_NO_THROW(app.multi_option<std::string>("-t,--tag", "d").group("Net"));
+}

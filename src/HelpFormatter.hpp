@@ -14,19 +14,13 @@ namespace clap {
         public:
             using ArgList = std::vector<std::unique_ptr<Argument>>;
 
+            /// Drops the hidden arguments and splits what is left into sections,
+            /// once. Every pass below reads the result, so nothing downstream
+            /// has to remember to skip a hidden argument or to look in a group.
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
-                          std::string_view footer = "", bool footer_wrap = true)
-                : _name(name), _description(description), _examples(examples),
-                  _footer(footer), _footer_wrap(footer_wrap) {
-                      for (const auto& o : options)
-                          if (!o->is_hidden())
-                              _options.push_back(o.get());
-                      for (const auto& p : positionals)
-                          if (!p->is_hidden())
-                              _positionals.push_back(p.get());
-                  }
+                          std::string_view footer = "", bool footer_wrap = true);
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -71,8 +65,12 @@ namespace clap {
 
             std::string_view _name;
             std::string_view _description;
+            /// Every shown option, whatever its group: the usage line does not
+            /// section anything and the widths span the whole table.
             std::vector<const Argument*> _options;
             std::vector<const Argument*> _positionals;
+            std::vector<const Argument*> _ungrouped;
+            std::vector<std::pair<std::string, std::vector<const Argument*>>> _groups;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
             bool _footer_wrap;

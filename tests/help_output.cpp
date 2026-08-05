@@ -1,11 +1,10 @@
-// Five related things:
-//
 //   HelpFlag  -h is nothing special. It is a flag the caller registers, and
 //             parse() keeps filling flags after an error so help can win.
 //   Usage     the generated usage line and the annotations in help text.
 //   Examples  the EXAMPLES block built from app.example() pairs.
 //   Footer    the free text app.footer() puts at the very end.
 //   Hidden    .hidden(), which drops an argument from help but not from parse.
+//   Groups    .group(), which splits OPTIONS: into named sections.
 
 #include "support/assertions.hpp"
 #include "support/standard_app.hpp"
@@ -19,6 +18,7 @@ struct Usage    : StandardApp {};
 struct Examples : StandardApp {};
 struct Footer   : StandardApp {};
 struct Hidden   : StandardApp {};
+struct Groups   : StandardApp {};
 
 // =============================================================================
 // The help flag:  -h/--help is just a flag the caller registers.
@@ -509,4 +509,142 @@ TEST_F(Hidden, LongHiddenNameDoesNotMoveTheOtherDescriptions) {
 
     app.option<int>("-n,--an-absurdly-long-option-name-here", "something else").hidden();
     EXPECT_EQ(desc_column_of(app.help(), "how many"), before);
+}
+
+// =============================================================================
+// Groups: .group("Networking") files an option under its own header instead of
+// the flat OPTIONS: list. Sections print positionals, then the ungrouped
+// options, then the named groups in first-seen order.
+//
+// Only options group. Positionals are ordered, and that order is the only
+// thing their block conveys -- .group() on one is a ConfigError, pinned in
+// registration.cpp.
+// =============================================================================
+
+namespace {
+    // Index of the line that is exactly `header`, for asserting section order.
+    size_t line_index(const std::string& help, std::string_view header) {
+        const std::vector<std::string> lines = lines_of(help);
+        for (size_t i = 0; i < lines.size(); ++i)
+            if (lines[i] == header)
+                return i;
+        return std::string::npos;
+    }
+
+    // Index of the first line containing `needle`, for asserting row order
+    // without pinning the column widths.
+    size_t line_containing(const std::string& help, std::string_view needle) {
+        const std::vector<std::string> lines = lines_of(help);
+        for (size_t i = 0; i < lines.size(); ++i)
+            if (lines[i].find(needle) != std::string::npos)
+                return i;
+        return std::string::npos;
+    }
+}
+
+// Nobody calls group(): the output is the flat list it has always been. This
+// is the case that must not regress.
+TEST_F(Groups, NoGroupCallLeavesOneFlatOptionsBlock) {
+    const std::string help = app.help();
+    EXPECT_NE(line_index(help, "OPTIONS:"), std::string::npos);
+    EXPECT_LT(line_containing(help, "--verbose"), line_containing(help, "--count"));
+}
+
+TEST_F(Groups, GroupedOptionMovesUnderItsOwnHeader) {
+    clap::App app{"prog", "d"};
+    app.flag("-v,--verbose", "loud");
+    app.option<int>("-p,--port", "port").group("Networking");
+
+    const std::string help = app.help();
+    ASSERT_NE(line_index(help, "Networking:"), std::string::npos);
+    EXPECT_GT(line_containing(help, "--port"), line_index(help, "Networking:"));
+    EXPECT_LT(line_containing(help, "--verbose"), line_index(help, "Networking:"));
+}
+
+// Positionals, then the ungrouped options, then the groups.
+TEST_F(Groups, SectionsPrintInOrder) {
+    clap::App app{"prog", "d"};
+    app.flag("-v,--verbose", "loud");
+    app.option<int>("-p,--port", "port").group("Networking");
+    app.positional<std::string>("input", "input");
+
+    const std::string help = app.help();
+    EXPECT_LT(line_index(help, "POSITIONALS:"), line_index(help, "OPTIONS:"));
+    EXPECT_LT(line_index(help, "OPTIONS:"), line_index(help, "Networking:"));
+}
+
+// A map would have sorted these; first-seen order is the caller's to choose.
+TEST_F(Groups, GroupsKeepFirstSeenOrderNotAlphabetical) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-z,--zulu", "z").group("Zebra");
+    app.option<int>("-a,--alpha", "a").group("Alpha");
+
+    const std::string help = app.help();
+    EXPECT_LT(line_index(help, "Zebra:"), line_index(help, "Alpha:"));
+}
+
+// Registration order inside a group survives an unrelated option registered
+// between the two members.
+TEST_F(Groups, ArgumentsKeepRegistrationOrderInsideAGroup) {
+    clap::App app{"prog", "d"};
+    app.option<int>("--first", "alpha").group("Net");
+    app.flag("-v,--verbose", "loud");
+    app.option<int>("--second", "beta").group("Net");
+
+    // the descriptions, not the names: the usage line carries both names and
+    // would match first.
+    const std::string help = app.help();
+    EXPECT_LT(line_containing(help, "alpha"), line_containing(help, "beta"));
+}
+
+// Whatever the caller typed, including casing and punctuation clap would
+// never produce itself.
+TEST_F(Groups, HeaderPrintsVerbatim) {
+    clap::App app{"prog", "d"};
+    app.option<int>("--rpc", "rpc").group("gRPC / debug");
+
+    EXPECT_NE(line_index(app.help(), "gRPC / debug:"), std::string::npos);
+}
+
+// Filtering hidden before partitioning, not after: a group whose every member
+// is hidden must never be created, or its header prints with no rows.
+TEST_F(Groups, GroupOfOnlyHiddenOptionsGetsNoHeader) {
+    clap::App app{"prog", "d"};
+    app.flag("-v,--verbose", "loud");
+    app.option<int>("--secret", "internal").group("Debug").hidden();
+
+    EXPECT_EQ(app.help().find("Debug:"), std::string::npos);
+}
+
+// A group with one hidden member and one shown member still prints, without
+// the hidden row.
+TEST_F(Groups, PartlyHiddenGroupKeepsItsHeader) {
+    clap::App app{"prog", "d"};
+    app.option<int>("--shown", "shown").group("Debug");
+    app.option<int>("--secret", "internal").group("Debug").hidden();
+
+    const std::string help = app.help();
+    EXPECT_NE(help.find("Debug:"), std::string::npos);
+    EXPECT_EQ(help.find("--secret"), std::string::npos);
+}
+
+// The whole reason the widths are measured over the flat option list: per
+// group widths would make the descriptions jag between sections.
+TEST_F(Groups, DescriptionColumnIsSharedAcrossSections) {
+    clap::App app{"prog", "d"};
+    app.flag("-v", "loud");
+    app.option<int>("--a-fairly-long-name", "grouped").group("Net");
+
+    EXPECT_EQ(desc_column_of(app.help(), "grouped"), desc_column_of(app.help(), "loud"));
+}
+
+// Groups are a help-table concern. usage() never sectioned anything and must
+// not start now.
+TEST_F(Groups, UsageLineIsUnaffected) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-p,--port", "port").group("Networking");
+
+    const std::string usage = app.usage();
+    EXPECT_NE(usage.find("[-p <int>]"), std::string::npos);
+    EXPECT_EQ(usage.find("Networking"), std::string::npos);
 }

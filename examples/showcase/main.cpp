@@ -126,37 +126,42 @@ int main(int argc, char** argv) {
 
     auto& help    = app.flag("-h,--help", "show this help message");
     // a flag also counts its repeats, so -vvv is a verbosity level
-    auto& verbose = app.flag("-v,--verbose", "repeat for more output (-vvv)");
+    auto& verbose = app.flag("-v,--verbose", "repeat for more output (-vvv)")
+                       .group("Debug");
 
     auto& name    = app.option<std::string>("-n,--name", "who is running this")
-                        .required();
+                       .required()
+                       .group("Settings");
 
     auto& port    = app.option<int>("-p,--port", "server port")
                        .default_value(8080)
-                       .range(1, 65535);
+                       .range(1, 65535)
+                       .group("Settings");
 
     auto& mode    = app.option<Mode>("-m,--mode", "run mode")
-                       .default_value(Mode::Safe);
+                       .default_value(Mode::Safe)
+                       .group("Debug");
 
     auto& format  = app.option<std::string>("-f,--format", "report format")
                        .choices({"json", "yaml", "xml"})
-                       .default_value("json");
+                       .default_value("json")
+                       .group("Settings");
 
     auto& ratio   = app.option<double>("-r,--ratio", "sampling ratio")
                        .default_value(0.5)
-                       .range(0.0, 1.0);
+                       .range(0.0, 1.0)
+                       .group("Settings");
 
     auto& offset  = app.option<int>("-e,--offset", "elevation offset, may be negative")
-                       .default_value(0);
+                       .default_value(0)
+                       .group("Settings");
 
     auto& token   = app.option<std::string>("-k,--token", "API token")
-                       .from_env("SHOWCASE_TOKEN");
+                       .from_env("SHOWCASE_TOKEN")
+                       .group("Settings");
 
     auto& color   = app.option<bool>("--color", "colorize output")
                        .default_value(true);
-
-    auto& sep     = app.option<char>("--sep", "field separator")
-                       .default_value(',');
 
     // no default and no required(): get() would throw, so read it with get_or()
     auto& output  = app.option<std::filesystem::path>("-o,--output", "output file");
@@ -197,7 +202,6 @@ int main(int argc, char** argv) {
     std::cout << "offset:    " << offset.get() << "\n";
     std::cout << "token:     " << token.get_or("<none>") << "\n";
     std::cout << "color:     " << (color.get() ? "on" : "off") << "\n";
-    std::cout << "sep:       " << sep.get() << "\n";
     std::cout << "input:     " << input.get() << "\n";
     std::cout << "label:     " << label.get() << "\n";
     std::cout << "output:    " << output.get_or(input.get().string() + ".out") << "\n";

@@ -50,6 +50,16 @@ namespace clap {
             virtual bool is_required() const noexcept { return _required; }
             bool is_hidden() const noexcept { return _hidden; }
 
+            /// The help section this argument was filed under, empty for the
+            /// default one.
+            const std::string& group() const noexcept { return _group; }
+
+            /// True if App put this in the positional list rather than the
+            /// option list. The base class cannot tell on its own, so App sets
+            /// it. But group() needs to know, and so would anything else that
+            /// is only meaningful on one of the two.
+            bool is_positional() const noexcept { return _positional; }
+
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
             /// Shortest registered name, preferred for the usage summary (e.g. "-v").
@@ -64,6 +74,11 @@ namespace clap {
             /// Where this argument was registered, for diagnostics. Set by App
             /// right after construction, so it points at the caller's site.
             void set_location(const std::source_location& loc) noexcept { _loc = loc; }
+
+            /// Called by App::add_positional, right after construction and
+            /// before the caller gets a chance to chain anything.
+            void mark_positional() noexcept { _positional = true; }
+
             const std::source_location& location() const noexcept { return _loc; }
 
             /// True if token matches one of this argument's names.
@@ -80,13 +95,16 @@ namespace clap {
         protected:
             void set_required() noexcept { _required = true; }
             void set_hidden()   noexcept { _hidden   = true; }
+            void set_group(std::string group) { _group = std::move(group); }
 
         private:
             std::string _names_raw;
             std::vector<std::string> _names;
             std::string _description;
+            std::string _group;
             bool _required = false;
             bool _hidden = false;
+            bool _positional = false;
             std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {

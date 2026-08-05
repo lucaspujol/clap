@@ -309,6 +309,16 @@ namespace clap {
             virtual bool is_required() const noexcept { return _required; }
             bool is_hidden() const noexcept { return _hidden; }
 
+            /// The help section this argument was filed under, empty for the
+            /// default one.
+            const std::string& group() const noexcept { return _group; }
+
+            /// True if App put this in the positional list rather than the
+            /// option list. The base class cannot tell on its own, so App sets
+            /// it. But group() needs to know, and so would anything else that
+            /// is only meaningful on one of the two.
+            bool is_positional() const noexcept { return _positional; }
+
             const std::vector<std::string>& raw_names() const noexcept { return _names; }
 
             /// Shortest registered name, preferred for the usage summary (e.g. "-v").
@@ -323,6 +333,11 @@ namespace clap {
             /// Where this argument was registered, for diagnostics. Set by App
             /// right after construction, so it points at the caller's site.
             void set_location(const std::source_location& loc) noexcept { _loc = loc; }
+
+            /// Called by App::add_positional, right after construction and
+            /// before the caller gets a chance to chain anything.
+            void mark_positional() noexcept { _positional = true; }
+
             const std::source_location& location() const noexcept { return _loc; }
 
             /// True if token matches one of this argument's names.
@@ -339,13 +354,16 @@ namespace clap {
         protected:
             void set_required() noexcept { _required = true; }
             void set_hidden()   noexcept { _hidden   = true; }
+            void set_group(std::string group) { _group = std::move(group); }
 
         private:
             std::string _names_raw;
             std::vector<std::string> _names;
             std::string _description;
+            std::string _group;
             bool _required = false;
             bool _hidden = false;
+            bool _positional = false;
             std::source_location _loc{};
 
             static std::vector<std::string> split(const std::string &str, char delimiter) {
@@ -758,6 +776,20 @@ namespace clap {
                 return self();
             }
 
+            /// File this argument under a named section of the help instead of
+            /// the default one. The name prints verbatim, casing included.
+            ///
+            /// Positionals cannot be grouped. This class backs positional("x")
+            /// and variadic("x") as well as option("-x"), so the refusal is a
+            /// runtime check on where App filed it rather than an absent method.
+            Derived& group(std::string name) {
+                if (this->is_positional())
+                    throw clap::ConfigError(this->location(),
+                        "group() is not available on positionals");
+                this->set_group(std::move(name));
+                return self();
+            }
+
         protected:
             /// parses a T value, then runs it past every registered validator
             T parse_value(std::string_view value) {
@@ -823,6 +855,13 @@ namespace clap {
             /// It still parses exactly as before.
             Flag& hidden() {
                 set_hidden();
+                return *this;
+            }
+
+            /// File this flag under a named section of the help instead of the
+            /// default one. The name prints verbatim, casing included.
+            Flag& group(std::string name) {
+                set_group(std::move(name));
                 return *this;
             }
 
@@ -1055,19 +1094,13 @@ namespace clap {
         public:
             using ArgList = std::vector<std::unique_ptr<Argument>>;
 
+            /// Drops the hidden arguments and splits what is left into sections,
+            /// once. Every pass below reads the result, so nothing downstream
+            /// has to remember to skip a hidden argument or to look in a group.
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
                           std::vector<std::pair<std::string, std::string>> examples,
-                          std::string_view footer = "", bool footer_wrap = true)
-                : _name(name), _description(description), _examples(examples),
-                  _footer(footer), _footer_wrap(footer_wrap) {
-                      for (const auto& o : options)
-                          if (!o->is_hidden())
-                              _options.push_back(o.get());
-                      for (const auto& p : positionals)
-                          if (!p->is_hidden())
-                              _positionals.push_back(p.get());
-                  }
+                          std::string_view footer = "", bool footer_wrap = true);
 
             /// The "Usage: ..." one-liner.
             std::string usage() const;
@@ -1112,8 +1145,12 @@ namespace clap {
 
             std::string_view _name;
             std::string_view _description;
+            /// Every shown option, whatever its group: the usage line does not
+            /// section anything and the widths span the whole table.
             std::vector<const Argument*> _options;
             std::vector<const Argument*> _positionals;
+            std::vector<const Argument*> _ungrouped;
+            std::vector<std::pair<std::string, std::vector<const Argument*>>> _groups;
             std::vector<std::pair<std::string, std::string>> _examples;
             std::string_view _footer;
             bool _footer_wrap;
@@ -1397,6 +1434,32 @@ inline std::string clap::detail::suggest(std::string_view unknown,
 }
 
 // ===== HelpFormatter.cpp =====
+inline clap::HelpFormatter::HelpFormatter(std::string_view name, std::string_view description,
+                                          const ArgList& options, const ArgList& positionals,
+                                          std::vector<std::pair<std::string, std::string>> examples,
+                                          std::string_view footer, bool footer_wrap)
+    : _name(name), _description(description), _examples(std::move(examples)),
+      _footer(footer), _footer_wrap(footer_wrap) {
+    for (const auto& o : options) {
+        if (o->is_hidden())
+            continue;
+        _options.push_back(o.get());
+        if (o->group().empty()) {
+            _ungrouped.push_back(o.get());
+            continue;
+        }
+        auto it = std::find_if(_groups.begin(), _groups.end(),
+                               [&](const auto& g) { return g.first == o->group(); });
+        if (it == _groups.end())
+            _groups.emplace_back(o->group(), std::vector<const Argument*>{o.get()});
+        else
+            it->second.push_back(o.get());
+    }
+    for (const auto& p : positionals)
+        if (!p->is_hidden())
+            _positionals.push_back(p.get());
+}
+
 inline std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
@@ -1584,8 +1647,11 @@ inline std::string clap::HelpFormatter::help() const {
     if (!_positionals.empty())
         oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    if (!_options.empty())
-        oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+    if (!_ungrouped.empty())
+        oss << "\nOPTIONS:\n" << table(_ungrouped, name_w, desc_col);
+
+    for (const auto& [group, args] : _groups)
+        oss << "\n" << group << ":\n" << table(args, name_w, desc_col);
 
     if (!_examples.empty()) {
         oss << "\nEXAMPLES:\n";
@@ -1672,6 +1738,7 @@ inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
 }
 
 inline void clap::App::add_positional(std::unique_ptr<Argument> pos) {
+    pos->mark_positional();
     const auto& names = pos->raw_names();
     if (names.size() != 1)
         throw clap::ConfigError(pos->location(),
