@@ -17,6 +17,19 @@ jobs:
           git diff --exit-code include/clap.hpp \
             || { echo "::error::include/clap.hpp is stale — rerun tools/build_single_header.py and commit"; exit 1; }
 
+      # Only the amalgam is ever compiled by CMake, so a src/ header that
+      # forgot an include would go unnoticed until someone reordered them.
+      - name: Verify every src/ file compiles on its own
+        run: |
+          for h in src/*.hpp; do
+            echo "#include \"$h\"" | g++ -std=c++20 -Isrc -xc++ - -fsyntax-only \
+              || { echo "::error file=$h::header is not self-contained"; exit 1; }
+          done
+          for c in src/*.cpp; do
+            g++ -std=c++20 -Isrc -fsyntax-only "$c" \
+              || { echo "::error file=$c::does not compile on its own"; exit 1; }
+          done
+
   build-test:
     # For a header-only library the compiler is the platform: everything is
     # templates compiled in the user's TU, so each toolchain is its own check.
