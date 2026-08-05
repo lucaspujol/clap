@@ -48,6 +48,17 @@ TEST_F(Values, LocaleIndependantParsing) {
     expect_error(app, a, clap::ErrorKind::InvalidValue);
 }
 
+TEST_F(Values, NonFiniteFloatRejected) {
+    clap::App app{"prog", "d"};
+    app.option<double>("-d", "double");
+    for (const char* token : {"nan", "inf"}) {
+        Argv a{"prog", "-d", token};
+        expect_error(app, a, clap::ErrorKind::InvalidValue);
+    }
+    Argv neg{"prog", "-d-inf"};
+    expect_error(app, neg, clap::ErrorKind::InvalidValue);
+}
+
 TEST_F(Values, FloatAndDoubleDifferOnlyInRange) {
     EXPECT_THROW(clap::ParseValue<float>::parse("1e40"), clap::ParseError);
     EXPECT_DOUBLE_EQ(clap::ParseValue<double>::parse("1e40"), 1e40);

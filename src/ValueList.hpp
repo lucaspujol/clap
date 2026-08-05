@@ -3,6 +3,7 @@
 #include "ClapExceptions.hpp"
 #include "TypedArgument.hpp"
 
+#include <locale>
 #include <sstream>
 #include <vector>
 
@@ -18,6 +19,7 @@ namespace clap {
         ValueList(std::string names, std::string description)
         : TypedArgument<T, ValueList<T>>(std::move(names), std::move(description)) {}
 
+        using Argument::parse;
         void parse(std::string_view value, bool discard) override {
             auto v = this->parse_value(value);
             if (!discard) _values.push_back(std::move(v));
@@ -47,6 +49,7 @@ namespace clap {
         std::string default_str() const override {
             if (_default_values.empty()) return "";
             std::ostringstream oss;
+            oss.imbue(std::locale::classic());
             oss << std::boolalpha;
             for (size_t i = 0; i < _default_values.size(); ++i) {
                 if (i) oss << ',';

@@ -5,16 +5,25 @@
 #include "damerau_osa.hpp"
 #include <algorithm>
 #include <cctype>
+#include <iostream>
 #include <string>
 #include <string_view>
 #include <vector>
 
 namespace clap::detail {
+    inline bool is_name_char(char c) {
+        auto u = static_cast<unsigned char>(c);
+        return u >= 0x80
+            || (u >= '0' && u <= '9')
+            || (u >= 'a' && u <= 'z')
+            || (u >= 'A' && u <= 'Z');
+    }
+
     inline bool is_long_body(std::string_view body) {
-        if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
+        if (body.empty() || !is_name_char(body[0]))
             return false;
         for (char c : body)
-            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+            if (!is_name_char(c) && c != '-' && c != '_')
                 return false;
         return true;
     }
@@ -189,13 +198,11 @@ inline bool clap::App::parse(const std::vector<std::string>& args) {
     // Runs even after a failure, so the values that did parse still fill in.
     assign_positionals(failures);
 
-    if (failures.empty()) {
-        for (auto& arg : _arguments) {
-            try {
-                arg->resolve_env();
-            } catch (const clap::ParseException& e) {
-                failures.push_back({after_argv, e.kind(), e.what()});
-            }
+    for (auto& arg : _arguments) {
+        try {
+            arg->resolve_env();
+        } catch (const clap::ParseException& e) {
+            failures.push_back({after_argv, e.kind(), e.what()});
         }
     }
 
@@ -297,6 +304,8 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
         auto *arg = find_argument(short_name);
         if (!arg)
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
+        if (!arg->takes_value() && token[j + 1] == '=')
+            throw clap::UnexpectedValue(short_name);
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);
             if (!attached.empty()) {

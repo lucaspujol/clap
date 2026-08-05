@@ -54,3 +54,12 @@ TEST_F(Env, FirstEnvErrorIsTheReportedOne) {
     expect_error(app, a, clap::ErrorKind::InvalidValue);
     EXPECT_NE(app.error().find("'nope'"), std::string::npos);
 }
+
+TEST_F(Env, EnvFallbackAppliedAfterArgvFailure) {
+    clap::App app{"prog", "d"};
+    auto& count = app.option<int>("-c,--count", "count").from_env("TEST_COUNT");
+    setenv("TEST_COUNT", "42", 1);
+    Argv a{"prog", "--typo"};
+    expect_error(app, a, clap::ErrorKind::UnknownArgument);
+    EXPECT_EQ(count.get(), 42);
+}

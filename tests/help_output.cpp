@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <locale>
 #include <sstream>
 
 struct HelpFlag : StandardApp {};
@@ -159,6 +160,20 @@ TEST_F(Usage, HelpAnnotatesDefault) {
     clap::App app{"prog", "d"};
     app.option<int>("-c,--count", "count").default_value(10);
     EXPECT_NE(app.help().find("(default: 10)"), std::string::npos);
+}
+
+TEST_F(Usage, HelpAnnotatesDefaultLocaleIndependently) {
+    std::locale previous;
+    try {
+        previous = std::locale::global(std::locale("fr_FR.UTF-8"));
+    } catch (const std::runtime_error&) {
+        GTEST_SKIP() << "fr_FR.UTF-8 locale not installed";
+    }
+    clap::App app{"prog", "d"};
+    app.option<int>("-c,--count", "count").default_value(1234567);
+    std::string out = app.help();
+    std::locale::global(previous);
+    EXPECT_NE(out.find("(default: 1234567)"), std::string::npos) << out;
 }
 
 TEST_F(Usage, HelpAnnotatesDefaultList) {

@@ -15,6 +15,7 @@ namespace clap {
 
             operator bool() const noexcept { return _value; }
 
+            using Argument::parse;
             void parse(std::string_view, bool discard) noexcept override {
                 if (!discard) {
                     _value = true;

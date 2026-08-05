@@ -9,8 +9,10 @@ ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 OUT = ROOT / "include" / "clap.hpp"
 
-# version stamped into the header; release CI overrides via CLAP_VERSION=<tag>
-VERSION = os.environ.get("CLAP_VERSION", "dev")
+# version stamped into the header; release CI overrides via CLAP_VERSION=<tag>.
+# the tag is "v0.5.0" but the macro holds bare semver, matching the CMake
+# project version.
+VERSION = os.environ.get("CLAP_VERSION", "dev").lstrip("v")
 
 # hardcoded dep order
 # could topologically sort the deps but this is easier

@@ -19,7 +19,8 @@ namespace clap {
             /// Consume a raw token as this argument's value. When discard is
             /// true the token is still validated but the result is thrown away,
             /// leaving the argument unset (used by the -/flag override syntax).
-            virtual void parse(std::string_view value, bool discard = false) = 0;
+            virtual void parse(std::string_view value, bool discard) = 0;
+            void parse(std::string_view value) { parse(value, false); }
             /// Type label for help, e.g. "int". Empty for flags.
             virtual std::string_view type_name() const = 0;
 
