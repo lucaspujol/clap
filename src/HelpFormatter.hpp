@@ -54,7 +54,12 @@ namespace clap {
                                           const std::string& head, size_t indent) const;
             std::string name_col(const Argument& arg) const;
             std::string type_col(const Argument& arg) const;
-            std::string annotation(const Argument& arg) const;
+            /// "(required)", "(default: 4)", "(>= 1)"... one string each, since
+            /// wrap() is word-based and would break "(>= 1)" in two.
+            std::vector<std::string> annotation(const Argument& arg) const;
+            /// Appends units to wrapped lines, never splitting one.
+            void append_units(std::vector<std::string>& lines,
+                              const std::vector<std::string>& units, size_t width) const;
             std::string prefix_col(const Argument& arg, size_t name_w) const;
             std::string row(const Argument& arg, size_t name_w, size_t desc_col) const;
             std::vector<std::string> wrap(const std::string& text, size_t width) const;

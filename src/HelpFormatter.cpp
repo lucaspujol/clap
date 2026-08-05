@@ -59,17 +59,30 @@ inline std::string clap::HelpFormatter::type_col(const clap::Argument& arg) cons
     return "<" + std::string(arg.type_name()) + ">";
 }
 
-inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
-    std::string s;
+inline std::vector<std::string> clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+    std::vector<std::string> units;
     if (arg.is_required())
-        s += " (required)";
+        units.push_back("(required)");
     else if (!arg.default_str().empty())
-        s += " (default: " + arg.default_str() + ")";
+        units.push_back("(default: " + arg.default_str() + ")");
     if (!arg.env_key().empty())
-        s += " (env: " + arg.env_key() + ")";
+        units.push_back("(env: " + arg.env_key() + ")");
     for (const auto& hint : arg.hints())
-        s += " (" + hint + ")";
-    return s;
+        units.push_back("(" + hint + ")");
+    return units;
+}
+
+inline void clap::HelpFormatter::append_units(std::vector<std::string>& lines,
+                                              const std::vector<std::string>& units,
+                                              size_t width) const {
+    for (const auto& unit : units) {
+        if (lines.back().empty())
+            lines.back() = unit;
+        else if (lines.back().size() + 1 + unit.size() <= width)
+            lines.back() += " " + unit;
+        else
+            lines.push_back(unit);
+    }
 }
 
 inline size_t clap::HelpFormatter::name_width() const {
@@ -141,8 +154,9 @@ inline std::string clap::HelpFormatter::row(const clap::Argument& arg, size_t na
     std::string prefix = prefix_col(arg, name_w);
 
     static_assert(_desc_max < _line_width, "the description column must leave room");
-    const std::vector<std::string> lines =
-        wrap(std::string(arg.description()) + annotation(arg), _line_width - desc_col);
+    const size_t width = _line_width - desc_col;
+    std::vector<std::string> lines = wrap(std::string(arg.description()), width);
+    append_units(lines, annotation(arg), width);
 
     std::ostringstream oss;
     if (prefix.size() + 2 <= desc_col) {

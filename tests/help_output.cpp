@@ -298,6 +298,26 @@ TEST_F(Usage, EveryNameTooLongFallsBackToTheCap) {
     EXPECT_EQ(desc_column_of(app.help(), "second"), first);
 }
 
+// wrap() is word-based, so an annotation reaching the right margin used to
+// break inside its own parentheses: "... (>= / 1)".
+TEST_F(Usage, AnnotationsAreNeverSplitAcrossLines) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-j,--jobs",
+                    "how many worker threads to run at once, capped by what the "
+                    "machine reports as available parallelism today")
+        .validator(clap::Min(1))
+        .default_value(4);
+
+    for (const auto& line : lines_of(app.help())) {
+        const size_t open = line.find_last_of('(');
+        if (open == std::string::npos)
+            continue;
+        EXPECT_NE(line.find(')', open), std::string::npos) << line;
+    }
+    EXPECT_NE(app.help().find("(>= 1)"), std::string::npos);
+    EXPECT_NE(app.help().find("(default: 4)"), std::string::npos);
+}
+
 TEST_F(Usage, EmptyAppDescriptionIsNotAWrappingError) {
     clap::App app{"prog", ""};
     app.flag("-v,--verbose", "loud");
