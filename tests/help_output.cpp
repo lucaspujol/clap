@@ -683,3 +683,15 @@ TEST_F(Groups, UsageLineIsUnaffected) {
     EXPECT_NE(usage.find("[-p <int>]"), std::string::npos);
     EXPECT_EQ(usage.find("Networking"), std::string::npos);
 }
+
+// "OPTIONS" is the default section's own header, so a group by that name joins
+// it rather than printing a second OPTIONS: block.
+TEST_F(Groups, GroupNamedOptionsJoinsTheDefaultSection) {
+    clap::App app{"prog", "d"};
+    app.flag("-v", "loud");
+    app.option<int>("-p,--port", "port").group("OPTIONS");
+
+    const std::string help = app.help();
+    EXPECT_EQ(help.find("OPTIONS:"), help.rfind("OPTIONS:"));
+    EXPECT_NE(help.find("--port"), std::string::npos);
+}

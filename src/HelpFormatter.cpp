@@ -16,7 +16,7 @@ inline clap::HelpFormatter::HelpFormatter(std::string_view name, std::string_vie
         if (o->is_hidden())
             continue;
         _options.push_back(o.get());
-        if (o->group().empty()) {
+        if (o->group().empty() || o->group() == "OPTIONS") {
             _ungrouped.push_back(o.get());
             continue;
         }
