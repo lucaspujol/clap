@@ -19,7 +19,7 @@ namespace clap {
             /// has to remember to skip a hidden argument or to look in a group.
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
-                          std::vector<std::pair<std::string, std::string>> examples,
+                          const std::vector<std::pair<std::string, std::string>>& examples,
                           std::string_view footer = "", bool footer_wrap = true);
 
             /// The "Usage: ..." one-liner.
@@ -76,7 +76,7 @@ namespace clap {
             std::vector<const Argument*> _positionals;
             std::vector<const Argument*> _ungrouped;
             std::vector<std::pair<std::string, std::vector<const Argument*>>> _groups;
-            std::vector<std::pair<std::string, std::string>> _examples;
+            const std::vector<std::pair<std::string, std::string>>& _examples;
             std::string_view _footer;
             bool _footer_wrap;
     };

@@ -8,9 +8,9 @@
 
 inline clap::HelpFormatter::HelpFormatter(std::string_view name, std::string_view description,
                                           const ArgList& options, const ArgList& positionals,
-                                          std::vector<std::pair<std::string, std::string>> examples,
+                                          const std::vector<std::pair<std::string, std::string>>& examples,
                                           std::string_view footer, bool footer_wrap)
-    : _name(name), _description(description), _examples(std::move(examples)),
+    : _name(name), _description(description), _examples(examples),
       _footer(footer), _footer_wrap(footer_wrap) {
     for (const auto& o : options) {
         if (o->is_hidden())
