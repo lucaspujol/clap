@@ -11,11 +11,16 @@
 #include <vector>
 
 namespace clap::detail {
+    inline bool is_name_char(char c) {
+        auto u = static_cast<unsigned char>(u_cast(c));
+        return u >= 0x80 || (u < 0x80 && std::isalnum(u));
+    }
+
     inline bool is_long_body(std::string_view body) {
-        if (body.empty() || !std::isalnum(static_cast<unsigned char>(body[0])))
+        if (body.empty() || !is_name_char(body[0]))
             return false;
         for (char c : body)
-            if (!std::isalnum(static_cast<unsigned char>(c)) && c != '-' && c != '_')
+            if (!is_name_char(c) && c != '-' && c != '_')
                 return false;
         return true;
     }
