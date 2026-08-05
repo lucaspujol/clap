@@ -141,9 +141,8 @@ namespace clap {
             }
 
             /// Add a footer to the help message. The footer is printed after the examples.
-            /// By default, the footer wraps like the rest of the help text. If you want to
-            /// disable this behavior, call app.disable_footer_wrap() before calling this
-            /// method.
+            /// By default, the footer wraps like the rest of the help text.
+            /// disable_footer_wrap() turns that off, in either call order.
             /// The footer is optional and can be empty (wont be displayed)
             void footer(const std::string& footer) {
                 _footer = footer;
