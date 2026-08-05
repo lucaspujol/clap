@@ -1,6 +1,7 @@
 #pragma once
 
 #include <charconv>
+#include <cmath>
 #include <filesystem>
 #include <string>
 #include <string_view>
@@ -27,6 +28,9 @@ namespace clap {
                     throw clap::ParseError("out of range");
                 if (ptr != last)
                     throw clap::ParseError("");
+                if constexpr (std::is_floating_point_v<T>)
+                    if (!std::isfinite(val))
+                        throw clap::ParseError("must be finite");
                 return val;
             } else {
                 std::istringstream iss{std::string(str)};
