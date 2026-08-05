@@ -58,12 +58,12 @@ inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
         throw clap::ConfigError(arg->location(),
             "argument registered with no valid name");
     const auto& names = arg->raw_names();
-    for (size_t i = 0; i < names.size(); ++i) {
-        const auto& n = names[i];
+    for (auto it = names.begin(); it != names.end(); ++it) {
+        const auto& n = *it;
         if (!clap::detail::valid_option_name(n))
             throw clap::ConfigError(arg->location(),
                 "invalid option name '" + n + "' (expected -f or --flag)");
-        if (std::find(names.begin(), names.begin() + i, n) != names.begin() + i)
+        if (std::find(names.begin(), it, n) != it)
             throw clap::ConfigError(arg->location(),
                 "redeclaration of flag " + n);
         for (const auto& existing : _arguments)
@@ -303,7 +303,7 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
         auto *arg = find_argument(short_name);
         if (!arg)
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
-        if (!arg->takes_value() && token[j + 1] == '=')
+        if (!arg->takes_value() && j + 1 < token.size() && token[j + 1] == '=')
             throw clap::UnexpectedValue(short_name);
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);

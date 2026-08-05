@@ -78,6 +78,9 @@ namespace clap {
 
             /// Keep this argument out of the help text and the usage line.
             /// It still parses exactly as before.
+            ///
+            /// Still required if required() (or, for a positional, no default):
+            /// the error then names an argument the help never showed.
             Derived& hidden() {
                 this->set_hidden();
                 return self();
@@ -85,6 +88,7 @@ namespace clap {
 
             /// File this argument under a named section of the help instead of
             /// the default one. The name prints verbatim, casing included.
+            /// "OPTIONS" names the default section, so it joins it.
             ///
             /// Positionals cannot be grouped. This class backs positional("x")
             /// and variadic("x") as well as option("-x"), so the refusal is a

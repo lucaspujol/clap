@@ -298,6 +298,43 @@ TEST_F(Usage, EveryNameTooLongFallsBackToTheCap) {
     EXPECT_EQ(desc_column_of(app.help(), "second"), first);
 }
 
+// wrap() is word-based, so an annotation reaching the right margin used to
+// break inside its own parentheses: "... (>= / 1)".
+TEST_F(Usage, AnnotationsAreNeverSplitAcrossLines) {
+    clap::App app{"prog", "d"};
+    app.option<int>("-j,--jobs",
+                    "how many worker threads to run at once, capped by what the "
+                    "machine reports as available parallelism today")
+        .validator(clap::Min(1))
+        .default_value(4);
+
+    for (const auto& line : lines_of(app.help())) {
+        const size_t open = line.find_last_of('(');
+        if (open == std::string::npos)
+            continue;
+        EXPECT_NE(line.find(')', open), std::string::npos) << line;
+    }
+    EXPECT_NE(app.help().find("(>= 1)"), std::string::npos);
+    EXPECT_NE(app.help().find("(default: 4)"), std::string::npos);
+}
+
+// An empty description used to wrap into one empty line, printed anyway: a
+// stray blank line after the usage, and trailing spaces on a row that had
+// nothing to say.
+TEST_F(Usage, EmptyAppDescriptionPrintsNoBlankLine) {
+    clap::App app{"prog", ""};
+    EXPECT_EQ(app.help(), "Usage: prog\n");
+}
+
+TEST_F(Usage, RowWithoutADescriptionHasNoTrailingSpaces) {
+    clap::App app{"prog", "d"};
+    app.flag("-v", "");
+    app.option<int>("-c,--count", "how many");
+
+    for (const auto& line : lines_of(app.help()))
+        EXPECT_EQ(line.find_last_not_of(' ') + 1, line.size()) << "[" << line << "]";
+}
+
 TEST_F(Usage, EmptyAppDescriptionIsNotAWrappingError) {
     clap::App app{"prog", ""};
     app.flag("-v,--verbose", "loud");
@@ -662,4 +699,16 @@ TEST_F(Groups, UsageLineIsUnaffected) {
     const std::string usage = app.usage();
     EXPECT_NE(usage.find("[-p <int>]"), std::string::npos);
     EXPECT_EQ(usage.find("Networking"), std::string::npos);
+}
+
+// "OPTIONS" is the default section's own header, so a group by that name joins
+// it rather than printing a second OPTIONS: block.
+TEST_F(Groups, GroupNamedOptionsJoinsTheDefaultSection) {
+    clap::App app{"prog", "d"};
+    app.flag("-v", "loud");
+    app.option<int>("-p,--port", "port").group("OPTIONS");
+
+    const std::string help = app.help();
+    EXPECT_EQ(help.find("OPTIONS:"), help.rfind("OPTIONS:"));
+    EXPECT_NE(help.find("--port"), std::string::npos);
 }

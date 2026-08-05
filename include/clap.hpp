@@ -781,6 +781,9 @@ namespace clap {
 
             /// Keep this argument out of the help text and the usage line.
             /// It still parses exactly as before.
+            ///
+            /// Still required if required() (or, for a positional, no default):
+            /// the error then names an argument the help never showed.
             Derived& hidden() {
                 this->set_hidden();
                 return self();
@@ -788,6 +791,7 @@ namespace clap {
 
             /// File this argument under a named section of the help instead of
             /// the default one. The name prints verbatim, casing included.
+            /// "OPTIONS" names the default section, so it joins it.
             ///
             /// Positionals cannot be grouped. This class backs positional("x")
             /// and variadic("x") as well as option("-x"), so the refusal is a
@@ -1116,7 +1120,7 @@ namespace clap {
             /// has to remember to skip a hidden argument or to look in a group.
             HelpFormatter(std::string_view name, std::string_view description,
                           const ArgList& options, const ArgList& positionals,
-                          std::vector<std::pair<std::string, std::string>> examples,
+                          const std::vector<std::pair<std::string, std::string>>& examples,
                           std::string_view footer = "", bool footer_wrap = true);
 
             /// The "Usage: ..." one-liner.
@@ -1151,7 +1155,12 @@ namespace clap {
                                           const std::string& head, size_t indent) const;
             std::string name_col(const Argument& arg) const;
             std::string type_col(const Argument& arg) const;
-            std::string annotation(const Argument& arg) const;
+            /// "(required)", "(default: 4)", "(>= 1)"... one string each, since
+            /// wrap() is word-based and would break "(>= 1)" in two.
+            std::vector<std::string> annotation(const Argument& arg) const;
+            /// Appends units to wrapped lines, never splitting one.
+            void append_units(std::vector<std::string>& lines,
+                              const std::vector<std::string>& units, size_t width) const;
             std::string prefix_col(const Argument& arg, size_t name_w) const;
             std::string row(const Argument& arg, size_t name_w, size_t desc_col) const;
             std::vector<std::string> wrap(const std::string& text, size_t width) const;
@@ -1168,7 +1177,7 @@ namespace clap {
             std::vector<const Argument*> _positionals;
             std::vector<const Argument*> _ungrouped;
             std::vector<std::pair<std::string, std::vector<const Argument*>>> _groups;
-            std::vector<std::pair<std::string, std::string>> _examples;
+            const std::vector<std::pair<std::string, std::string>>& _examples;
             std::string_view _footer;
             bool _footer_wrap;
     };
@@ -1302,9 +1311,8 @@ namespace clap {
             }
 
             /// Add a footer to the help message. The footer is printed after the examples.
-            /// By default, the footer wraps like the rest of the help text. If you want to
-            /// disable this behavior, call app.disable_footer_wrap() before calling this
-            /// method.
+            /// By default, the footer wraps like the rest of the help text.
+            /// disable_footer_wrap() turns that off, in either call order.
             /// The footer is optional and can be empty (wont be displayed)
             void footer(const std::string& footer) {
                 _footer = footer;
@@ -1400,8 +1408,8 @@ inline int clap::detail::damerau_osa(const std::string& s1, const std::string& s
     int cost = 0;
 
     // init d
-    for (i = 0; i < s1.size() + 1; i++) d[i][0] = i;
-    for (j = 0; j < s2.size() + 1; j++) d[0][j] = j;
+    for (i = 0; i < s1.size() + 1; i++) d[i][0] = static_cast<int>(i);
+    for (j = 0; j < s2.size() + 1; j++) d[0][j] = static_cast<int>(j);
 
     for (i = 1; i < s1.size() + 1; i++) {
         for (j = 1; j < s2.size() + 1; j++) {
@@ -1453,15 +1461,15 @@ inline std::string clap::detail::suggest(std::string_view unknown,
 // ===== HelpFormatter.cpp =====
 inline clap::HelpFormatter::HelpFormatter(std::string_view name, std::string_view description,
                                           const ArgList& options, const ArgList& positionals,
-                                          std::vector<std::pair<std::string, std::string>> examples,
+                                          const std::vector<std::pair<std::string, std::string>>& examples,
                                           std::string_view footer, bool footer_wrap)
-    : _name(name), _description(description), _examples(std::move(examples)),
+    : _name(name), _description(description), _examples(examples),
       _footer(footer), _footer_wrap(footer_wrap) {
     for (const auto& o : options) {
         if (o->is_hidden())
             continue;
         _options.push_back(o.get());
-        if (o->group().empty()) {
+        if (o->group().empty() || o->group() == "OPTIONS") {
             _ungrouped.push_back(o.get());
             continue;
         }
@@ -1504,17 +1512,30 @@ inline std::string clap::HelpFormatter::type_col(const clap::Argument& arg) cons
     return "<" + std::string(arg.type_name()) + ">";
 }
 
-inline std::string clap::HelpFormatter::annotation(const clap::Argument& arg) const {
-    std::string s;
+inline std::vector<std::string> clap::HelpFormatter::annotation(const clap::Argument& arg) const {
+    std::vector<std::string> units;
     if (arg.is_required())
-        s += " (required)";
+        units.push_back("(required)");
     else if (!arg.default_str().empty())
-        s += " (default: " + arg.default_str() + ")";
+        units.push_back("(default: " + arg.default_str() + ")");
     if (!arg.env_key().empty())
-        s += " (env: " + arg.env_key() + ")";
+        units.push_back("(env: " + arg.env_key() + ")");
     for (const auto& hint : arg.hints())
-        s += " (" + hint + ")";
-    return s;
+        units.push_back("(" + hint + ")");
+    return units;
+}
+
+inline void clap::HelpFormatter::append_units(std::vector<std::string>& lines,
+                                              const std::vector<std::string>& units,
+                                              size_t width) const {
+    for (const auto& unit : units) {
+        if (lines.back().empty())
+            lines.back() = unit;
+        else if (lines.back().size() + 1 + unit.size() <= width)
+            lines.back() += " " + unit;
+        else
+            lines.push_back(unit);
+    }
 }
 
 inline size_t clap::HelpFormatter::name_width() const {
@@ -1586,10 +1607,15 @@ inline std::string clap::HelpFormatter::row(const clap::Argument& arg, size_t na
     std::string prefix = prefix_col(arg, name_w);
 
     static_assert(_desc_max < _line_width, "the description column must leave room");
-    const std::vector<std::string> lines =
-        wrap(std::string(arg.description()) + annotation(arg), _line_width - desc_col);
+    const size_t width = _line_width - desc_col;
+    std::vector<std::string> lines = wrap(std::string(arg.description()), width);
+    append_units(lines, annotation(arg), width);
 
     std::ostringstream oss;
+    if (lines.front().empty()) {          // nothing to describe: no padding to print
+        oss << prefix << "\n";
+        return oss.str();
+    }
     if (prefix.size() + 2 <= desc_col) {
         prefix.resize(desc_col, ' ');
         oss << prefix << lines.front() << "\n";
@@ -1654,9 +1680,12 @@ inline std::string clap::HelpFormatter::usage() const {
 
 inline std::string clap::HelpFormatter::help() const {
     std::ostringstream oss;
-    oss << usage() << "\n\n";
-    for (const auto& line : wrap(std::string(_description), _line_width))
-        oss << line << "\n";
+    oss << usage() << "\n";
+    if (!_description.empty()) {
+        oss << "\n";
+        for (const auto& line : wrap(std::string(_description), _line_width))
+            oss << line << "\n";
+    }
 
     const size_t name_w = name_width();
     const size_t desc_col = desc_column();
@@ -1746,12 +1775,12 @@ inline void clap::App::add_argument(std::unique_ptr<Argument> arg) {
         throw clap::ConfigError(arg->location(),
             "argument registered with no valid name");
     const auto& names = arg->raw_names();
-    for (size_t i = 0; i < names.size(); ++i) {
-        const auto& n = names[i];
+    for (auto it = names.begin(); it != names.end(); ++it) {
+        const auto& n = *it;
         if (!clap::detail::valid_option_name(n))
             throw clap::ConfigError(arg->location(),
                 "invalid option name '" + n + "' (expected -f or --flag)");
-        if (std::find(names.begin(), names.begin() + i, n) != names.begin() + i)
+        if (std::find(names.begin(), it, n) != it)
             throw clap::ConfigError(arg->location(),
                 "redeclaration of flag " + n);
         for (const auto& existing : _arguments)
@@ -1991,7 +2020,7 @@ inline void clap::App::parse_short_cluster(std::string_view token, ArgCursor& cu
         auto *arg = find_argument(short_name);
         if (!arg)
             throw clap::UnknownArgument(short_name, did_you_mean(short_name));
-        if (!arg->takes_value() && token[j + 1] == '=')
+        if (!arg->takes_value() && j + 1 < token.size() && token[j + 1] == '=')
             throw clap::UnexpectedValue(short_name);
         if (arg->takes_value()) {
             auto attached = token.substr(j + 1);

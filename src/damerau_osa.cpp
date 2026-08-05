@@ -22,8 +22,8 @@ inline int clap::detail::damerau_osa(const std::string& s1, const std::string& s
     int cost = 0;
 
     // init d
-    for (i = 0; i < s1.size() + 1; i++) d[i][0] = i;
-    for (j = 0; j < s2.size() + 1; j++) d[0][j] = j;
+    for (i = 0; i < s1.size() + 1; i++) d[i][0] = static_cast<int>(i);
+    for (j = 0; j < s2.size() + 1; j++) d[0][j] = static_cast<int>(j);
 
     for (i = 1; i < s1.size() + 1; i++) {
         for (j = 1; j < s2.size() + 1; j++) {
