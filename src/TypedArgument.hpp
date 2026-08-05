@@ -78,6 +78,9 @@ namespace clap {
 
             /// Keep this argument out of the help text and the usage line.
             /// It still parses exactly as before.
+            ///
+            /// Still required if required() (or, for a positional, no default):
+            /// the error then names an argument the help never showed.
             Derived& hidden() {
                 this->set_hidden();
                 return self();
