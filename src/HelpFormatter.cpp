@@ -159,6 +159,10 @@ inline std::string clap::HelpFormatter::row(const clap::Argument& arg, size_t na
     append_units(lines, annotation(arg), width);
 
     std::ostringstream oss;
+    if (lines.front().empty()) {          // nothing to describe: no padding to print
+        oss << prefix << "\n";
+        return oss.str();
+    }
     if (prefix.size() + 2 <= desc_col) {
         prefix.resize(desc_col, ' ');
         oss << prefix << lines.front() << "\n";
@@ -223,9 +227,12 @@ inline std::string clap::HelpFormatter::usage() const {
 
 inline std::string clap::HelpFormatter::help() const {
     std::ostringstream oss;
-    oss << usage() << "\n\n";
-    for (const auto& line : wrap(std::string(_description), _line_width))
-        oss << line << "\n";
+    oss << usage() << "\n";
+    if (!_description.empty()) {
+        oss << "\n";
+        for (const auto& line : wrap(std::string(_description), _line_width))
+            oss << line << "\n";
+    }
 
     const size_t name_w = name_width();
     const size_t desc_col = desc_column();

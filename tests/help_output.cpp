@@ -318,6 +318,23 @@ TEST_F(Usage, AnnotationsAreNeverSplitAcrossLines) {
     EXPECT_NE(app.help().find("(default: 4)"), std::string::npos);
 }
 
+// An empty description used to wrap into one empty line, printed anyway: a
+// stray blank line after the usage, and trailing spaces on a row that had
+// nothing to say.
+TEST_F(Usage, EmptyAppDescriptionPrintsNoBlankLine) {
+    clap::App app{"prog", ""};
+    EXPECT_EQ(app.help(), "Usage: prog\n");
+}
+
+TEST_F(Usage, RowWithoutADescriptionHasNoTrailingSpaces) {
+    clap::App app{"prog", "d"};
+    app.flag("-v", "");
+    app.option<int>("-c,--count", "how many");
+
+    for (const auto& line : lines_of(app.help()))
+        EXPECT_EQ(line.find_last_not_of(' ') + 1, line.size()) << "[" << line << "]";
+}
+
 TEST_F(Usage, EmptyAppDescriptionIsNotAWrappingError) {
     clap::App app{"prog", ""};
     app.flag("-v,--verbose", "loud");
