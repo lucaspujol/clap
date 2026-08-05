@@ -6,6 +6,32 @@
 #include <cstring>
 #include <sstream>
 
+inline clap::HelpFormatter::HelpFormatter(std::string_view name, std::string_view description,
+                                          const ArgList& options, const ArgList& positionals,
+                                          std::vector<std::pair<std::string, std::string>> examples,
+                                          std::string_view footer, bool footer_wrap)
+    : _name(name), _description(description), _examples(std::move(examples)),
+      _footer(footer), _footer_wrap(footer_wrap) {
+    for (const auto& o : options) {
+        if (o->is_hidden())
+            continue;
+        _options.push_back(o.get());
+        if (o->group().empty()) {
+            _ungrouped.push_back(o.get());
+            continue;
+        }
+        auto it = std::find_if(_groups.begin(), _groups.end(),
+                               [&](const auto& g) { return g.first == o->group(); });
+        if (it == _groups.end())
+            _groups.emplace_back(o->group(), std::vector<const Argument*>{o.get()});
+        else
+            it->second.push_back(o.get());
+    }
+    for (const auto& p : positionals)
+        if (!p->is_hidden())
+            _positionals.push_back(p.get());
+}
+
 inline std::string clap::HelpFormatter::usage_token(const clap::Argument& arg, bool positional) const {
     if (positional) {
         std::string core = "<" + std::string(arg.names()) + ">";
@@ -193,8 +219,11 @@ inline std::string clap::HelpFormatter::help() const {
     if (!_positionals.empty())
         oss << "\nPOSITIONALS:\n" << table(_positionals, name_w, desc_col);
 
-    if (!_options.empty())
-        oss << "\nOPTIONS:\n" << table(_options, name_w, desc_col);
+    if (!_ungrouped.empty())
+        oss << "\nOPTIONS:\n" << table(_ungrouped, name_w, desc_col);
+
+    for (const auto& [group, args] : _groups)
+        oss << "\n" << group << ":\n" << table(args, name_w, desc_col);
 
     if (!_examples.empty()) {
         oss << "\nEXAMPLES:\n";
