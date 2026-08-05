@@ -200,6 +200,40 @@ columns either, so a long internal name won't push every other description right
 Hiding is independent of `.required()`: a hidden required argument still errors
 when it's missing, it just isn't advertised.
 
+### Grouping options in help
+
+Past a dozen options one flat list stops being scannable. `.group("groupName")`
+files an option under its own header.
+
+```cpp
+app.flag("-h,--help", "Show this help");
+app.option<int>("-p,--port", "Port to bind").group("Networking").default_value(8080);
+app.option<std::string>("--host", "Host to bind").group("Networking");
+app.option<std::string>("--log-file", "Where to write logs").group("gRPC / debug");
+```
+
+```
+OPTIONS:
+  -h,--help               Show this help
+
+Networking:
+  -p,--port     <int>     Port to bind (default: 8080)
+  --host        <string>  Host to bind
+
+gRPC / debug:
+  --log-file    <string>  Where to write logs
+```
+
+Positionals, then ungrouped options, then groups in the order you named them.
+Registration order inside a group. Never calling `.group()` leaves the flat
+list untouched.
+
+Headers print verbatim, casing included. Columns are measured across all
+sections, so descriptions stay aligned.
+
+Only options, multi-options or flagsd group. `.group()` on a positional or a
+variadic is a `ConfigError`.
+
 ### Positionals and variadics
 
 Positionals match by order, no dash.
