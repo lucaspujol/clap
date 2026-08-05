@@ -12,8 +12,11 @@
 
 namespace clap::detail {
     inline bool is_name_char(char c) {
-        auto u = static_cast<unsigned char>(u_cast(c));
-        return u >= 0x80 || (u < 0x80 && std::isalnum(u));
+        auto u = static_cast<unsigned char>(c);
+        return u >= 0x80
+            || (u >= '0' && u <= '9')
+            || (u >= 'a' && u <= 'z')
+            || (u >= 'A' && u <= 'Z');
     }
 
     inline bool is_long_body(std::string_view body) {
