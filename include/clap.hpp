@@ -23,12 +23,12 @@
  * Include this header and use the clap namespace to parse command line arguments.
  *
  * @author Lucas Pujol
- * @version dev
+ * @version 1.0.0
  */
 
 #pragma once
 
-#define CLAP_VERSION "dev"
+#define CLAP_VERSION "1.0.0"
 
 #include <charconv>
 #include <cmath>
