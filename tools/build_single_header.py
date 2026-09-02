@@ -2,17 +2,16 @@
 """amalgamate src/ into a single header file in include/clap.hpp"""
 
 from pathlib import Path
-import os
 import re
 
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src"
 OUT = ROOT / "include" / "clap.hpp"
 
-# version stamped into the header; release CI overrides via CLAP_VERSION=<tag>.
-# the tag is "v0.5.0" but the macro holds bare semver, matching the CMake
-# project version.
-VERSION = os.environ.get("CLAP_VERSION", "dev").lstrip("v")
+# version stamped into the header, and through it into the CMake project
+# version. Committed so a tag checkout, a tarball and FetchContent all agree;
+# release CI checks the tag against it.
+VERSION = (ROOT / "VERSION").read_text().strip()
 
 # hardcoded dep order
 # could topologically sort the deps but this is easier

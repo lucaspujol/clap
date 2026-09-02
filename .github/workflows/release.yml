@@ -13,6 +13,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The header is generated from VERSION, not from the tag, so the tag has
+      # to agree with it or the release would ship a mislabelled header.
+      - name: Verify the tag matches VERSION
+        run: |
+          test "${{ github.ref_name }}" = "v$(cat VERSION)" \
+            || { echo "::error::tag ${{ github.ref_name }} does not match VERSION ($(cat VERSION))"; exit 1; }
+
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake g++ libgtest-dev
 
@@ -23,8 +30,6 @@ jobs:
           ctest --test-dir build --output-on-failure
 
       - name: Amalgamate versioned header
-        env:
-          CLAP_VERSION: ${{ github.ref_name }}
         run: |
           python3 tools/build_single_header.py
           (cd include && sha256sum clap.hpp > clap.hpp.sha256)
