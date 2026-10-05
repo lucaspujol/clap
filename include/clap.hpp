@@ -30,6 +30,8 @@
 
 #define CLAP_VERSION "1.0.0"
 
+#include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
@@ -462,9 +464,18 @@ namespace clap {
     template<>
     struct ParseValue<bool> {
         static bool parse(std::string_view str) {
-            if (str == "1" || str == "true" || str == "yes" || str == "on")
+            std::string lowercase = std::string(str);
+            std::transform(
+                lowercase.begin(),
+                lowercase.end(),
+                lowercase.begin(),
+                [](unsigned char c) {
+                    return std::tolower(c);
+            });
+
+            if (lowercase == "1" || lowercase == "true" || lowercase == "yes" || lowercase == "on")
                 return true;
-            if (str == "0" || str == "false" || str == "no" || str == "off")
+            if (lowercase == "0" || lowercase == "false" || lowercase == "no" || lowercase == "off")
                 return false;
             throw ParseError("valid values: 1, true, yes, on, 0, false, no, off");
         }
@@ -1382,8 +1393,6 @@ namespace clap {
     };
 }
 
-#include <algorithm>
-#include <cctype>
 #include <cstddef>
 #include <cstring>
 
