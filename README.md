@@ -67,14 +67,15 @@ cmake --install build --prefix /usr/local
 That installs `clap.hpp` plus a CMake package next to it:
 
 ```cmake
-find_package(clap 0.5 REQUIRED)
+find_package(clap 1.0 REQUIRED)
 target_link_libraries(your_app PRIVATE clap::clap)
 ```
 
 Same `clap::clap` target as FetchContent gives you, so downstream code doesn't
-care which path it came from. The installed version is the one stamped into the
-header at release; a build from `main` says `dev` and installs as `0.0.0`, which
-satisfies no version request: install from a release tag if you want one.
+care which path it came from. The version comes from the `VERSION` file at the
+root, which is committed, so a tag checkout, a source tarball and FetchContent
+all report the same one. `main` carries the version of the last release until
+the next bump.
 
 ## Example
 

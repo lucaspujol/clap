@@ -110,9 +110,10 @@ TEST_F(Values, DoubleHelpShowsDouble) {
 }
 
 // --- bool: an option, not a flag. ParseValue<bool> takes named spellings. ----
+// not case sensitive
 
 TEST_F(Values, BoolAcceptsTrueSpellings) {
-    for (const char* token : {"1", "true", "yes", "on"}) {
+    for (const char* token : {"1", "true", "TRUE", "yes", "YES", "on", "ON",}) {
         clap::App app{"prog", "d"};
         auto& b = app.option<bool>("-b", "bool");
         Argv a{"prog", "-b", token};
@@ -122,7 +123,7 @@ TEST_F(Values, BoolAcceptsTrueSpellings) {
 }
 
 TEST_F(Values, BoolAcceptsFalseSpellings) {
-    for (const char* token : {"0", "false", "no", "off"}) {
+    for (const char* token : {"0", "false", "FALSE", "no", "NO", "off", "OFF"}) {
         clap::App app{"prog", "d"};
         auto& b = app.option<bool>("-b", "bool");
         Argv a{"prog", "-b", token};
@@ -132,7 +133,7 @@ TEST_F(Values, BoolAcceptsFalseSpellings) {
 }
 
 TEST_F(Values, BoolRejectsOtherSpellings) {
-    for (const char* token : {"True", "YES", "maybe", "2", ""}) {
+    for (const char* token : {"maybe", "2", ""}) {
         clap::App app{"prog", "d"};
         app.option<bool>("-b", "bool");
         Argv a{"prog", "-b", token};
